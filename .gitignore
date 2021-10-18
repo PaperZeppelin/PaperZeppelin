@@ -1,0 +1,8 @@
+# __pycache__ folders
+*.pyc
+
+# config data
+*.json
+
+# environment variables
+*.env
