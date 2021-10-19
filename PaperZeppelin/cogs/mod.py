@@ -26,20 +26,8 @@ class Mod(commands.Cog):
         super().__init__()
         self.client = client
 
-    def staff_or_permission(self, ctx: commands.Context, **perms: bool):
-        invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
-        if invalid:
-            raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
-        permissions = ctx.author.guild_permissions
-        missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
-        staff = True
-        if not missing:
-            return True
-        if missing:
-            if staff:
-                return True
-
-        raise MissingPermissions(missing)
+    def staff_or_permission(self):
+        return True
 
     async def check_roles(self, ctx):
         getter = functools.partial(discord.utils.get, ctx.author.roles)  # type: ignore
@@ -53,9 +41,9 @@ class Mod(commands.Cog):
     @commands.check(check_roles)
     async def ban_command(self, ctx: commands.Context, *inputs):
         """Ban a user from the server"""
-        # if (not self.staff_or_permission(ctx, ctx.author, ctx.author.guild_permissions.ban_members)):
-        #     await ctx.channel.send(f"🔒 You are not allowed to use this command")
-        #     return
+        if (not self.staff_or_permission()):
+            await ctx.channel.send(f"🔒 You are not allowed to use this command")
+            return
         if(len(inputs) == 0):
             await ctx.channel.send(f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}ban [member] <reason>`")
             return
