@@ -13,8 +13,6 @@ from discord.ext.commands.core import command
 from discord.ext.commands.errors import CommandNotFound
 import json
 
-from PaperZeppelin import update_prefix
-from PaperZeppelin import update_roles
 
 configure_help = f"""
 ```diff
