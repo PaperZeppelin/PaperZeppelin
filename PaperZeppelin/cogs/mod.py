@@ -29,16 +29,9 @@ class Mod(commands.Cog):
     def staff_or_permission(self):
         return True
 
-    async def check_roles(self, ctx):
-        getter = functools.partial(discord.utils.get, ctx.author.roles)  # type: ignore
-        staff = any(getter(id=item) is not None if isinstance(item, int) else getter(name=item) is not None for item in self.client.guild_cache[ctx.guild.id]["mod_roles"])
-
-        return False or staff
-
     @commands.command(name="ban")
     @commands.guild_only()
     @commands.bot_has_guild_permissions(ban_members=True)
-    @commands.check(check_roles)
     async def ban_command(self, ctx: commands.Context, *inputs):
         """Ban a user from the server"""
         if (not self.staff_or_permission()):
