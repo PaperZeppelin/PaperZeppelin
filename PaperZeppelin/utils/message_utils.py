@@ -22,7 +22,7 @@ async def gen_cog_help(help_command, cog) -> str:
     message += f'{commands}\n'
     message += f"You can get more info about a command (params and subcommands) by using '{help_command.context.clean_prefix}help <command>'\nCommands followed by ↪ have subcommands."
     message += "\n```" 
-    return message if len(filtered) > 1 else "🔒 You do not have permission to view this cog"
+    return message if len(filtered) > 0 else "🔒 You do not have permission to view this cog"
 
 async def gen_group_help(help_command, group) -> str:
     message = f"**Paper Zeppelin help 1/1**\n```diff\n"

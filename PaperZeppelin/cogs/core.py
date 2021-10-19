@@ -40,6 +40,7 @@ class Core(commands.Cog):
         self.client.user_messages += 1
 
     @commands.command(name="ping")
+    @commands.guild_only()
     async def ping(self, ctx: commands.Context):
         '''Get the approximate ping (Discord API -> Bot) in ms'''
         start_time = time.time()
