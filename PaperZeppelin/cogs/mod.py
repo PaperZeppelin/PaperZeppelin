@@ -26,7 +26,7 @@ class Mod(commands.Cog):
         super().__init__()
         self.client = client
 
-    def staff_or_permission(self):
+    def staff_or_permission(self, member, ctx, ur_mother, ):
         return True
 
     @commands.command(name="ban")
