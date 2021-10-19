@@ -26,41 +26,16 @@ intents = discord.Intents(guild_messages = True, members = True, typing = False,
 client = commands.Bot(command_prefix=get_prefix, intents=intents)
 client.remove_command("help")
 
-with open(f'prefixes.json', 'r') as f: 
-    prefixes = json.load(f)
-
-with open(f'mod_roles.json', 'r') as f: 
-    roles = json.load(f)
 
 with open(f'logs.json', 'r') as f: 
     logs = json.load(f)
 
-
-client.prefix = prefixes
-client.mod_roles = roles
 client.logs = logs
 
 client.guild_cache = dict()
 client.user_messages = 0
 client.self_messages = 0
 client.bot_messages = 0
-
-def update_prefix():
-    prefixes = client.prefix
-    with open(f'prefixes.json', 'w') as f: 
-        json.dump(prefixes, f, indent=4)
-
-update_prefix()
-
-def get_roles(guild_id: str, role: str):
-    with open(f'{role}_roles.json', 'r') as f: 
-        roles = json.load(f)
-    return roles[guild_id]
-
-def update_roles(role, role_str:str):
-    roles = role
-    with open(f'{role_str}_roles.json', 'w') as f: 
-        json.dump(roles, f, indent=4)
 
 def get_logs(guild_id: str):
     with open(f'logs.json', 'r') as f: 
@@ -71,8 +46,6 @@ def update_logs(logs):
     with open(f'logs.json', 'w') as f: 
         json.dump(logs, f, indent=4)
 
-
-update_roles(client.mod_roles, "mod")
 update_logs(client.logs)
 
 @client.event
