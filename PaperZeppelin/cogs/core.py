@@ -3,7 +3,7 @@ from discord import activity
 from discord.ext import commands
 from discord.ext.commands.bot import Bot
 from discord.errors import Forbidden
-from discord.ext.commands.errors import CommandNotFound, MemberNotFound, MissingPermissions
+from discord.ext.commands.errors import BadArgument, CommandNotFound, MemberNotFound, MissingPermissions
 import json
 import time
 
@@ -23,10 +23,13 @@ class Core(commands.Cog):
         if isinstance(error, CommandNotFound):
             return
         if isinstance(error, MissingPermissions):
-            await ctx.channel.send("🔒 You are not allowed to use this command")
+            await ctx.send("🔒 You are not allowed to use this command")
             return
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.channel.send("Missing a required parameter")
+            await ctx.send("Missing a required parameter")
+            return
+        if isinstance(error, BadArgument):
+            await ctx.send("Failed to convert your arguments")
             return
         raise error
 
@@ -40,7 +43,6 @@ class Core(commands.Cog):
         self.client.user_messages += 1
 
     @commands.command(name="ping")
-    @commands.guild_only()
     async def ping(self, ctx: commands.Context):
         '''Get the approximate ping (Discord API -> Bot) in ms'''
         start_time = time.time()

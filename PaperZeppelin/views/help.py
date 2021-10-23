@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from utils.message_utils import gen_bot_help, gen_cog_help
+from utils import MessageUtils
 
 class HelpMenu(discord.ui.Select):
     def __init__(self, help_command, bot):
@@ -19,10 +19,10 @@ class HelpMenu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "All":
-            message = await gen_bot_help(self.help_command, self.help_command.get_bot_mapping())
+            message = await MessageUtils.gen_bot_help(self.help_command, self.help_command.get_bot_mapping())
             view = HelpView(self.help_command, self.bot)
         else:
-            message = await gen_cog_help(self.help_command, self.bot.get_cog(self.values[0]))
+            message = await MessageUtils.gen_cog_help(self.help_command, self.bot.get_cog(self.values[0]))
             view = HelpView(self.help_command, self.bot).set_default(label=self.values[0])
         await interaction.response.edit_message(content=message, view=view)
     

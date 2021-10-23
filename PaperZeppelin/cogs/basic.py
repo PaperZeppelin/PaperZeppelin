@@ -5,12 +5,11 @@ from discord.components import SelectOption
 from discord.enums import DefaultAvatar
 from discord.ext import commands
 from discord.ext.commands.core import Command, Group, guild_only
-from discord.ext.commands.errors import MemberNotFound
+from discord.ext.commands.errors import BadArgument, MemberNotFound
 from discord.ui import view
 from discord.ui.select import Select
 
-
-from utils.message_utils import gen_bot_help, gen_cog_help, gen_group_help, gen_command_help
+from utils import MessageUtils, MathUtils
 from views.help import HelpView
 
 class Basic(commands.Cog):
@@ -69,6 +68,55 @@ class Basic(commands.Cog):
         if isinstance(error, commands.MemberNotFound):
             await ctx.send("I can't find that member")
             return
+        
+    @commands.group(name="math")
+    async def mathtools(self, ctx: commands.Context):
+        """Root command for math tools"""
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help("math")
+
+    @mathtools.command(name="fib")
+    async def fib(self, ctx: commands.Context, *, n: str = None):
+        """Compute the nth Fibbonaci term"""
+        if n is None:
+            await ctx.send_help("math fib")
+        else:
+            try: 
+                n = int(n.replace(" ", "").replace(",", ""))
+                if n == 0:
+                    await ctx.send_help("math fib")
+                elif n < 0:
+                    raise BadArgument()
+                else:
+                    try:
+                        start_time = time.time()
+                        fib = MathUtils.fib(n)
+                        end_time = time.time()
+                        await ctx.send(f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```")
+                    except RecursionError:
+                        await ctx.send(f"The number supplied ({n}) is greater then my threshold")
+            except ValueError:
+                raise BadArgument()
+
+    @mathtools.command(name="tri")
+    async def tri(self, ctx: commands.Context, *, n: str = None):
+        """Compute the nth triangular number"""
+        if n is None:
+            await ctx.send_help("math tri")
+        else:
+            try:
+                n = int(n.replace(" ", "").replace(",", ""))
+                if n == 0:
+                    await ctx.send_help("math tri")
+                elif n < 0:
+                    raise BadArgument()
+                else:
+                    start_time = time.time()
+                    tri = MathUtils.tri(n)
+                    end_time = time.time()
+                    await ctx.send(f"The {n}th triangular number is\n```{tri}\n```")
+            except ValueError:
+                raise BadArgument()
 
     @commands.command(name="serverinfo", aliases=["server"])
     @commands.guild_only()
@@ -131,28 +179,28 @@ class Help(commands.HelpCommand):
 
     async def send_bot_help(self, mapping):
 
-        message = await gen_bot_help(self, mapping)
+        message = await MessageUtils.gen_bot_help(self, mapping)
         view = HelpView(self, self.context.bot)
 
         await self.get_destination().send(content=message, view=view)
 
     async def send_cog_help(self, cog: commands.Cog):
 
-        message = await gen_cog_help(self, cog)
+        message = await MessageUtils.gen_cog_help(self, cog)
         view = HelpView(self, self.context.bot)
 
         await self.get_destination().send(content=message, view=view.set_default(cog.qualified_name))
 
     async def send_group_help(self, group: commands.Group):
 
-        message = await gen_group_help(self, group)
+        message = await MessageUtils.gen_group_help(self, group)
         view = HelpView(self, self.context.bot)
 
         await self.get_destination().send(content=message, view=view.set_default(group.cog_name))
 
     async def send_command_help(self, command: commands.Command):
 
-        message = await gen_command_help(self, command)
+        message = await MessageUtils.gen_command_help(self, command)
         view = HelpView(self, self.context.bot)
 
         await self.get_destination().send(content=message, view=view.set_default(command.cog_name))
