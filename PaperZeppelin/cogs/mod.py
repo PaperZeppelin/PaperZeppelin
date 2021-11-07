@@ -26,15 +26,21 @@ class Mod(commands.Cog):
         super().__init__()
         self.client = client
 
-    def staff_or_permission(self, member, ctx, ur_mother, ):
-        return True
+    def staff_or_permission(self, ctx, member, permissions ):
+        getter = functools.partial(discord.utils.get, ctx.author.roles)
+        staff = any(getter(id=item) is not None if isinstance(item, int) else getter(name=item) is not None for item in self.client.guild_cache[ctx.guild.id]["mod_roles"])
+        return staff or permissions
+
+    def can_interact(self, issuer: Member, target: Member):
+        # return issuer.roles[0].position > target.roles[0].position
+        return issuer.roles[len(issuer.roles) - 1].position > target.roles[len(target.roles) - 1].position or issuer.id == issuer.guild.owner.id
 
     @commands.command(name="ban")
     @commands.guild_only()
     @commands.bot_has_guild_permissions(ban_members=True)
     async def ban_command(self, ctx: commands.Context, *inputs):
         """Ban a user from the server"""
-        if (not self.staff_or_permission()):
+        if (not self.staff_or_permission(ctx.author, ctx.author.guild_permissions.ban_members)):
             await ctx.channel.send(f"🔒 You are not allowed to use this command")
             return
         if(len(inputs) == 0):
@@ -107,7 +113,7 @@ class Mod(commands.Cog):
     @commands.group(name="clean")
     @commands.guild_only()
     async def clean_base_command(self, ctx: commands.Context):
-        if (not self.staff_or_permission(ctx, ctx.author, ctx.author.guild_permissions.ban_members)):
+        if (not self.staff_or_permission(ctx, ctx.author, ctx.author.guild_permissions.manage_messages)):
             raise MissingPermissions
         time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")   
         self.client.logs[str(ctx.guild.id)].insert(0, f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) used {ctx.prefix}clean")
@@ -323,6 +329,21 @@ class Mod(commands.Cog):
         else:
             if ctx.invoked_subcommand is None:
                 raise MissingPermissions(missing_permissions=["VIEW_AUDIT_LOG"])
+
+    @commands.command(name="mkick")
+    @commands.guild_only()
+    async def mkick(self, ctx: commands.Context, members: commands.Greedy[typing.Union[discord.Member, discord.User]], *, reason):
+        """Kick multiple user from the server"""
+        await ctx.send(members)
+        print(self.can_interact(ctx.author, members[0]))
+        # if (not self.staff_or_permission(ctx, ctx.author, ctx.author.guild_permissions.kick_members)):
+        #     await ctx.channel.send(f"🔒 You are not allowed to use this command")
+        #     return
+        # if(len(members) == 0):
+        #     await ctx.channel.send(f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}kick [member] <reason>`")
+        #     return
+
+        # time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")   
 
 def setup(client: Bot):
     client.add_cog(Mod(client=client))

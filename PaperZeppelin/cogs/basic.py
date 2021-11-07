@@ -1,4 +1,5 @@
 import datetime, time
+import typing
 import discord
 from discord import message
 from discord.components import SelectOption
@@ -33,35 +34,8 @@ class Basic(commands.Cog):
 
     @commands.command(name="userinfo", aliases=["user", "whois", "user_info", "user_profile"])
     @commands.guild_only()
-    async def userinfo(self, ctx: commands.Context, target: discord.Member = None):
-        member = target if target is not None else ctx.message.author
-        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-
-
-        embed = discord.Embed(colour=member.top_role.colour if member.top_role.colour is not None else 0x00cea2, timestamp=now)
-        embed.set_thumbnail(url=member.avatar.url)
-
-        embed.add_field(name="Name", value=f"{member.name}#{member.discriminator}", inline=True)
-        embed.add_field(name="ID", value=f"{member.id}", inline=True)
-        embed.add_field(name="Bot account", value=f"{member.bot}", inline=True)
-        embed.add_field(name="Animated avatar", value=f"{member.avatar.is_animated()}", inline=True)
-        embed.add_field(name="Avatar url", value=f"[Avatar url]({member.avatar.url})", inline=True)
-        embed.add_field(name="Profile", value=f"<@{member.id}>", inline=True)
-        embed.add_field(name="Nickname", value=member.nick, inline=False)
-
-        role_list = [role.mention for role in reversed(member.roles) if role is not ctx.guild.default_role]
-        if len(role_list) > 40:
-            embed.add_field(name="Roles", value="Too many roles!", inline=False)
-        elif len(role_list) > 0:
-            embed.add_field(name="Roles", value=" ".join(role_list), inline=False)
-        else:
-            embed.add_field(name="Roles", value="No roles", inline=False)
-
-        embed.add_field(name="Joined at", value=f"{(now - member.joined_at).days} days ago, (``{member.joined_at}+00:00``)", inline=True)
-        embed.add_field(name="Created at", value=f"{(now - member.created_at).days} days ago, (``{member.created_at}+00:00``)", inline=True)
-
-        embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=ctx.author.avatar.url)
-        await ctx.send(embed=embed)
+    async def userinfo(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.User] = None):
+        await ctx.send(embed=MessageUtils.build(type="user_info", member=target, issuer=ctx.author))
 
     @userinfo.error
     async def userinfo_error(self, ctx, error):

@@ -126,21 +126,43 @@ class Admin(commands.Cog):
                 
         
 
-    @commands.command(name="leave")
+    @commands.group(name="leave")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def leave(self, ctx: Context):
         """Force the bot to leave the server"""
+        if ctx.invoked_subcommand is None:
+            member_permissions = ctx.message.author.guild_permissions
+            if(member_permissions.administrator):
+                await ctx.channel.send(f"It's been an honour serving {ctx.guild.name}, but alas, my time as come")
+                await ctx.guild.leave()
+            else: 
+                await ctx.channel.send(f"Only server admins can use this command!")
+
+    @leave.command(name="hard")
+    @commands.guild_only()
+    @commands.has_guild_permissions(administrator=True)
+    async def hard(self, ctx: Context):
+        """Force the bot to leave the server AND delete all data"""
         member_permissions = ctx.message.author.guild_permissions
         if(member_permissions.administrator):
-            await ctx.channel.send(f"It's been an honour serving {ctx.guild.name}, but alas, my time as come")
+            await ctx.send(f"It's been an honour serving {ctx.guild.name}, but alas, my time as come")
+            message = await ctx.send("Deleting data stored...")
+            await message.edit(content=message.content + "\n```\nDeleting settings\n```")
+            await self.client.pg_con.execute("DELETE FROM guilds WHERE id = $1", ctx.guild.id)
+            await self.client.pg_con.execute("DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id)
+            await message.edit(content=message.content + "\n```\nDeleting infractions\n```")
+            await self.client.pg_con.execute("DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id)
+            await message.edit(content="Deleted all data")
+            await ctx.send("Leaving guild...")
             await ctx.guild.leave()
         else: 
             await ctx.channel.send(f"Only server admins can use this command!")
 
+
     @commands.command(name="quicklog", aliases=["ql", "quickl"])
     @commands.guild_only()
-    @commands.has_permissions(administrator=True)
+    @commands.has_guild_permissions(view_audit_log=True)
     async def quicklog(self, ctx: Context):
         """Get the past 25 interactions between the bot and the server"""
         member_permissions = ctx.message.author.guild_permissions

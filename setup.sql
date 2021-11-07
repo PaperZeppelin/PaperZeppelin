@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS infractions (
     time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     guild_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
-    mod_id BIGINT NOT NULL,
-    type VARCHAR(10) NOT NULL,
+    mod_id BIGINT,
+    type VARCHAR(15) NOT NULL,
     reason VARCHAR(1000)
 )

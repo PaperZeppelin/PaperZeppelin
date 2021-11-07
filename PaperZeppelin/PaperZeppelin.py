@@ -1,18 +1,22 @@
 import json
 import os
 import discord
-import os
 from discord import activity
 from discord.enums import Status
 from discord.ext import commands
 from discord.ext.commands.bot import Bot
 from discord.ext.commands.context import Context
 from discord.integrations import _integration_factory
+from discord.interactions import Interaction
 from discord.message import Message
 from dotenv import load_dotenv
 import datetime, time
 import asyncpg
-import asyncio
+import aiohttp
+from enums.Permissions import Permissions
+from utils import BitUtils
+from utils import MessageUtils
+
 
 load_dotenv()
 
@@ -22,10 +26,9 @@ async def get_prefix(client, message):
         return commands.when_mentioned_or(client.guild_cache[message.guild.id]["prefix"])(client, message)
 
 
-intents = discord.Intents(guild_messages = True, members = True, typing = False, guilds = True)
-client = commands.Bot(command_prefix=get_prefix, intents=intents)
+intents = discord.Intents(guild_messages = True, members = True, typing = False, guilds = True, bans=True)
+client = commands.Bot(command_prefix=get_prefix, intents=intents,)
 client.remove_command("help")
-
 
 with open(f'logs.json', 'r') as f: 
     logs = json.load(f)
@@ -50,6 +53,8 @@ update_logs(client.logs)
 
 @client.event
 async def on_ready():
+    client.before_activity = "`3` the chats go by"
+    client.status = discord.Status.idle
     await client.change_presence(status=discord.Status.idle, activity=discord.Activity(type=discord.ActivityType.watching, name="the chats go by"))
     client.start_time = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
     for guild in client.guilds:
@@ -76,28 +81,32 @@ async def on_ready():
         }
     print(client.guild_cache)
 
+
 @client.event
 async def on_guild_join(guild):
-    with open(f'prefixes.json', 'r') as f: 
-        prefixes = json.load(f)
-    prefixes[str(guild.id)] = "-"
-    with open(f'prefixes.json', 'w') as f: 
-        json.dump(prefixes, f, indent=4)
+    # Build cache
+    client.guild_cache[guild.id] = {
+       'prefix': '-',
+       'mod_roles': [],
+       'infractions': []
+    }
 
-    with open(f'mod_roles.json', 'r') as f: 
-        mod_roles = json.load(f)
-    mod_roles[str(guild.id)] = []
-    with open(f'mod_roles.json', 'w') as f: 
-        json.dump(mod_roles, f, indent=4)
-
+    # Dump logs
     client.logs[str(guild.id)] = [f"{datetime.datetime.utcnow().replace(microsecond=0).isoformat()}{' ' * 4}{client.user.id} ({client.user.name}#{client.user.discriminator}) has joined the server"]
     update_logs(client.logs)
     with open(f'logs.json', 'w') as f: 
         json.dump(client.logs, f, indent=4)
 
+    # Handle database
+    await client.pg_con.execute("INSERT INTO guilds (id, prefix) VALUES ($1, '-')", guild.id)
+    # Infractions + mod_roles do not need to be built on guild_join
+
 for filename in os.listdir("./cogs"):
     if (filename.endswith(".py")):
-        client.load_extension(f"cogs.{filename[:-3]}")
+        try:
+            client.load_extension(f"cogs.{filename[:-3]}")
+        except commands.ExtensionFailed:
+            pass
 
 async def create_db_pool():
     client.pg_con = await asyncpg.create_pool(database=os.getenv("PG_DATABASE"), user=os.getenv("PG_USER"), password=os.getenv("PG_PASS"), host="127.0.0.1")
