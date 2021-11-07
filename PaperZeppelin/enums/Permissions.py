@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Permissions(Enum):
     CREATE_INSTANT_INVITE: int = 0
     KICK_MEMBERS: int = 1

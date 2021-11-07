@@ -13,36 +13,53 @@ from discord.ui.select import Select
 from utils import MessageUtils, MathUtils
 from views.help import HelpView
 
+
 class Basic(commands.Cog):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
         self.client.help_command = Help()
-        
+
     @commands.command(name="about")
     async def about(self, ctx: commands.Context):
-        uptime = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc) - self.client.start_time
+        uptime = (
+            datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+            - self.client.start_time
+        )
         hours, remainder = divmod(int(uptime.total_seconds()), 3600)
         days, hours = divmod(hours, 24)
         minutes, seconds = divmod(remainder, 60)
         total = str(sum(len(guild.members) for guild in self.client.guilds))
         unique = str(len(self.client.users))
         description = f"Stats for shard 0\nI've been up for {days} days, {hours} hours, {minutes} minutes, {seconds} seconds\nI've recieved {self.client.user_messages} user messages, {self.client.bot_messages} bot messages ({self.client.self_messages} were mine)\nI'm serving {total} users ({unique} unique)"
-        embed = discord.Embed(description=description, colour=0x00cea2, timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc))
+        embed = discord.Embed(
+            description=description,
+            colour=0x00CEA2,
+            timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(
+                tzinfo=datetime.timezone.utc
+            ),
+        )
         await ctx.send(embed=embed)
 
-
-    @commands.command(name="userinfo", aliases=["user", "whois", "user_info", "user_profile"])
+    @commands.command(
+        name="userinfo", aliases=["user", "whois", "user_info", "user_profile"]
+    )
     @commands.guild_only()
-    async def userinfo(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.User] = None):
-        await ctx.send(embed=MessageUtils.build(type="user_info", member=target, issuer=ctx.author))
+    async def userinfo(
+        self,
+        ctx: commands.Context,
+        target: typing.Union[discord.Member, discord.User] = None,
+    ):
+        await ctx.send(
+            embed=MessageUtils.build(type="user_info", member=target, issuer=ctx.author)
+        )
 
     @userinfo.error
     async def userinfo_error(self, ctx, error):
         if isinstance(error, commands.MemberNotFound):
             await ctx.send("I can't find that member")
             return
-        
+
     @commands.group(name="math")
     async def mathtools(self, ctx: commands.Context):
         """Root command for math tools"""
@@ -55,7 +72,7 @@ class Basic(commands.Cog):
         if n is None:
             await ctx.send_help("math fib")
         else:
-            try: 
+            try:
                 n = int(n.replace(" ", "").replace(",", ""))
                 if n == 0:
                     await ctx.send_help("math fib")
@@ -66,9 +83,13 @@ class Basic(commands.Cog):
                         start_time = time.time()
                         fib = MathUtils.fib(n)
                         end_time = time.time()
-                        await ctx.send(f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```")
+                        await ctx.send(
+                            f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```"
+                        )
                     except RecursionError:
-                        await ctx.send(f"The number supplied ({n}) is greater then my threshold")
+                        await ctx.send(
+                            f"The number supplied ({n}) is greater then my threshold"
+                        )
             except ValueError:
                 raise BadArgument()
 
@@ -100,36 +121,49 @@ class Basic(commands.Cog):
         if guild_features == "":
             guild_features = None
         guild_made = guild.created_at.strftime("%d-%m-%Y")
-        embed = discord.Embed(color=guild.roles[-1].color, timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc))
+        embed = discord.Embed(
+            color=guild.roles[-1].color,
+            timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(
+                tzinfo=datetime.timezone.utc
+            ),
+        )
         if guild.icon is not None:
             embed.set_thumbnail(url=guild.icon.url)
         embed.add_field(name="Name", value=guild.name, inline=True)
         embed.add_field(name="ID", value=guild.id, inline=True)
         embed.add_field(name="Owner", value=guild.owner, inline=True)
         embed.add_field(name="Members", value=guild.member_count, inline=True)
-        embed.add_field(name="Channels", value=f"📚 Categories: {str(len(guild.categories))}\n📝 Text channels: {str(len(guild.text_channels))}\n:microphone2: Voice channels: {str(len(guild.voice_channels))}\nTotal channels: {str(len(guild.text_channels) + len(guild.voice_channels))}", inline=True)
-        embed.add_field(name="Created at", value=f"{guild_made} ({(datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc) - guild.created_at).days} days ago)", inline=True)
+        embed.add_field(
+            name="Channels",
+            value=f"📚 Categories: {str(len(guild.categories))}\n📝 Text channels: {str(len(guild.text_channels))}\n:microphone2: Voice channels: {str(len(guild.voice_channels))}\nTotal channels: {str(len(guild.text_channels) + len(guild.voice_channels))}",
+            inline=True,
+        )
+        embed.add_field(
+            name="Created at",
+            value=f"{guild_made} ({(datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc) - guild.created_at).days} days ago)",
+            inline=True,
+        )
         embed.add_field(name="VIP features", value=guild_features, inline=True)
 
         if guild.icon is not None:
             embed.add_field(
                 name="Server icon",
                 value=f"[Server icon]({guild.icon.url})",
-                inline=True
+                inline=True,
             )
 
         roles = ", ".join(role.name for role in guild.roles)
         embed.add_field(
             name="Roles",
             value=roles if len(roles) < 1024 else f"{len(guild.roles)} roles",
-            inline=False
+            inline=False,
         )
 
         if guild.emojis:
             emoji = "".join(str(e) for e in guild.emojis)
             embed.add_field(
                 name="Server emoji",
-                value=emoji if len(emoji) < 1024 else f"{len(guild.emojis)} emoji"
+                value=emoji if len(emoji) < 1024 else f"{len(guild.emojis)} emoji",
             )
 
         if guild.splash is not None:
@@ -137,19 +171,21 @@ class Basic(commands.Cog):
         if guild.banner is not None:
             embed.set_image(url=guild.banner.url)
 
-        embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(
+            text=f"Requested by {ctx.author.name}", icon_url=ctx.author.avatar.url
+        )
 
         await ctx.send(embed=embed)
 
 
-
 class Help(commands.HelpCommand):
     """Custom help command"""
+
     def __init__(self):
         super().__init__()
 
     def is_group(self, command: Command):
-        return '\n  ↪' if isinstance(command, Group) else ''
+        return "\n  ↪" if isinstance(command, Group) else ""
 
     async def send_bot_help(self, mapping):
 
@@ -163,24 +199,31 @@ class Help(commands.HelpCommand):
         message = await MessageUtils.gen_cog_help(self, cog)
         view = HelpView(self, self.context.bot)
 
-        await self.get_destination().send(content=message, view=view.set_default(cog.qualified_name))
+        await self.get_destination().send(
+            content=message, view=view.set_default(cog.qualified_name)
+        )
 
     async def send_group_help(self, group: commands.Group):
 
         message = await MessageUtils.gen_group_help(self, group)
         view = HelpView(self, self.context.bot)
 
-        await self.get_destination().send(content=message, view=view.set_default(group.cog_name))
+        await self.get_destination().send(
+            content=message, view=view.set_default(group.cog_name)
+        )
 
     async def send_command_help(self, command: commands.Command):
 
         message = await MessageUtils.gen_command_help(self, command)
         view = HelpView(self, self.context.bot)
 
-        await self.get_destination().send(content=message, view=view.set_default(command.cog_name))
+        await self.get_destination().send(
+            content=message, view=view.set_default(command.cog_name)
+        )
 
     async def command_not_found(self, string):
         return f"I can't seem to find any cog or command named {string}"
+
 
 def setup(client):
     client.add_cog(Basic(client=client))

@@ -3,15 +3,28 @@ from discord.ext import commands
 
 from utils import MessageUtils
 
+
 class HelpMenu(discord.ui.Select):
     def __init__(self, help_command, bot):
 
         options = [
-            discord.SelectOption(label='All', description="View all commands and their description", default=True),
-            discord.SelectOption(label='Admin', description='View all commands for the Admin cog'),
-            discord.SelectOption(label='Basic', description='View all commands for the Basic cog'),
-            discord.SelectOption(label="Core", description="View all commands for the Core cog"),
-            discord.SelectOption(label="Mod", description="View all commands for the Mod cog")
+            discord.SelectOption(
+                label="All",
+                description="View all commands and their description",
+                default=True,
+            ),
+            discord.SelectOption(
+                label="Admin", description="View all commands for the Admin cog"
+            ),
+            discord.SelectOption(
+                label="Basic", description="View all commands for the Basic cog"
+            ),
+            discord.SelectOption(
+                label="Core", description="View all commands for the Core cog"
+            ),
+            discord.SelectOption(
+                label="Mod", description="View all commands for the Mod cog"
+            ),
         ]
         self.help_command = help_command
         self.bot = bot
@@ -19,13 +32,19 @@ class HelpMenu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "All":
-            message = await MessageUtils.gen_bot_help(self.help_command, self.help_command.get_bot_mapping())
+            message = await MessageUtils.gen_bot_help(
+                self.help_command, self.help_command.get_bot_mapping()
+            )
             view = HelpView(self.help_command, self.bot)
         else:
-            message = await MessageUtils.gen_cog_help(self.help_command, self.bot.get_cog(self.values[0]))
-            view = HelpView(self.help_command, self.bot).set_default(label=self.values[0])
+            message = await MessageUtils.gen_cog_help(
+                self.help_command, self.bot.get_cog(self.values[0])
+            )
+            view = HelpView(self.help_command, self.bot).set_default(
+                label=self.values[0]
+            )
         await interaction.response.edit_message(content=message, view=view)
-    
+
     def set_default(self, label: str = None) -> discord.ui.Select:
         if label is None:
             return self
@@ -36,6 +55,7 @@ class HelpMenu(discord.ui.Select):
                 elif option.label == "All":
                     option.default = False
         return self
+
 
 class HelpView(discord.ui.View):
     def __init__(self, help_command, bot):
