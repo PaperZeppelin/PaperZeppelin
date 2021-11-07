@@ -26,7 +26,11 @@ jobs:
       - name: Run black --check .
         run: black --check .
         
-      - name: If needed, commit black changes to the pull request
+      - name: Run black if need be
+        if: failure()
+        run: black .
+        
+      - name: Commit black changes to the repository
         if: failure()
         uses: EndBug/add-and-commit@v7
         with:
