@@ -53,7 +53,10 @@ class Interactions(commands.Cog):
         elif interaction.data["name"] == "User info":
             target = interaction.data["target_id"]
             user_dict = interaction.data["resolved"]["users"][target]
-            if "members" in interaction.data["resolved"] and target in interaction.data["resolved"]["members"]:
+            if (
+                "members" in interaction.data["resolved"]
+                and target in interaction.data["resolved"]["members"]
+            ):
                 member_dict = interaction.data["resolved"]["members"][target]
                 member_dict["user"] = user_dict
                 member = discord.Member(
