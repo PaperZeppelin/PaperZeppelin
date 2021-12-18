@@ -23,7 +23,9 @@ import re
 import os
 
 DISCORD_API_ENDPOINT = "https://discord.com/api/v9"
-URL_REGEX = re.compile("(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})")
+URL_REGEX = re.compile(
+    "(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})"
+)
 
 WHITELIST = [
     DISCORD_API_ENDPOINT + "/users/@me",
@@ -34,9 +36,7 @@ WHITELIST = [
     "https://httpbin.org/patch",
 ]
 
-BLACKLIST = [
-    "https://www.google.com/"
-]
+BLACKLIST = ["https://www.google.com/"]
 
 
 def will_send(url: str) -> bool:

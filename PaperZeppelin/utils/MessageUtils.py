@@ -79,7 +79,7 @@ async def gen_group_help(help_command, group: commands.Group) -> str:
 
 async def gen_command_help(help_command, command) -> str:
     message = f"**Paper Zeppelin help 1/1**\n```diff\n"
-    filtered = await help_command.filter_commands([ command ])
+    filtered = await help_command.filter_commands([command])
     commands = (
         f"{help_command.context.clean_prefix}  {command.name}\n\n{command.short_doc}"
     )
@@ -106,11 +106,16 @@ def build(**kwargs):
                 before=kwargs.get("before"), after=kwargs.get("after")
             )
         elif type == "verification_level":
-            return verification_level(level=kwargs.get("level"), prefix=kwargs.get("prefix"))
+            return verification_level(
+                level=kwargs.get("level"), prefix=kwargs.get("prefix")
+            )
+
 
 def verification_level(level: int, prefix: str) -> str:
     if level == 0:
-        return "There is currently no verification method set up for this server (use `{prefix}help cfg verification` to find out how to set it up)".format(prefix=prefix)
+        return "There is currently no verification method set up for this server (use `{prefix}help cfg verification` to find out how to set it up)".format(
+            prefix=prefix
+        )
     elif level == 1:
         return "Current verification level: 1 (command)"
 

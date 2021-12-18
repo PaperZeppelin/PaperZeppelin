@@ -105,7 +105,7 @@ async def on_ready():
             "prefix": prefix,
             "mod_roles": mod_roles,
             "infractions": infractions,
-            "verification_level":  verification_level
+            "verification_level": verification_level,
         }
     print(client.guild_cache)
 
@@ -113,7 +113,12 @@ async def on_ready():
 @client.event
 async def on_guild_join(guild):
     # Build cache
-    client.guild_cache[guild.id] = {"prefix": "-", "mod_roles": [], "infractions": [], "verification_level": 0}
+    client.guild_cache[guild.id] = {
+        "prefix": "-",
+        "mod_roles": [],
+        "infractions": [],
+        "verification_level": 0,
+    }
 
     # Dump logs
     client.logs[str(guild.id)] = [

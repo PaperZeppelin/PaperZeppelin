@@ -254,8 +254,14 @@ class Admin(commands.Cog):
     @commands.has_guild_permissions(administrator=True)
     async def verification(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send(content=MessageUtils.build(type="verification_level", level=self.client.guild_cache[ctx.guild.id]["verification_level"], prefix=ctx.prefix))
-    
+            await ctx.send(
+                content=MessageUtils.build(
+                    type="verification_level",
+                    level=self.client.guild_cache[ctx.guild.id]["verification_level"],
+                    prefix=ctx.prefix,
+                )
+            )
+
     @verification.command(name="set")
     @commands.guild_only()
     @commands.has_guild_permissions(administrator=True)
@@ -263,9 +269,15 @@ class Admin(commands.Cog):
         if level < 0 or level > 1:
             raise BadArgument("Could not parse the `level` arguement")
         self.client.guild_cache[ctx.guild.id]["verification_level"] = level
-        await ctx.send("Set the servers verification level to {level}".format(level=level))
-        await self.client.pg_con.execute("UPDATE guilds SET verification_level = $1 WHERE id = $2", level, ctx.guild.id)
-    
+        await ctx.send(
+            "Set the servers verification level to {level}".format(level=level)
+        )
+        await self.client.pg_con.execute(
+            "UPDATE guilds SET verification_level = $1 WHERE id = $2",
+            level,
+            ctx.guild.id,
+        )
+
 
 def setup(client: Bot):
     client.add_cog(Admin(client=client))

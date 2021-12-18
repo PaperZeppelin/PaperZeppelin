@@ -7,5 +7,6 @@ class Verification(commands.Cog):
         super().__init__()
         self.client = client
 
+
 def setup(client: commands.Bot):
     client.add_cog(Verification(client=client))
