@@ -10,9 +10,9 @@ from discord.ext.commands.bot import Bot
 from discord.errors import Forbidden
 from discord.ext.commands.context import Context
 from discord.ext.commands.core import command
-from discord.ext.commands.errors import CommandNotFound
+from discord.ext.commands.errors import BadArgument, CommandNotFound
 import json
-
+from utils import MessageUtils
 
 configure_help = f"""
 ```diff
@@ -249,6 +249,23 @@ class Admin(commands.Cog):
         else:
             await ctx.channel.send(f"Only server admins can use this command!")
 
+    @configure.group(name="verification")
+    @commands.guild_only()
+    @commands.has_guild_permissions(administrator=True)
+    async def verification(self, ctx: commands.Context):
+        if ctx.invoked_subcommand is None:
+            await ctx.send(content=MessageUtils.build(type="verification_level", level=self.client.guild_cache[ctx.guild.id]["verification_level"], prefix=ctx.prefix))
+    
+    @verification.command(name="set")
+    @commands.guild_only()
+    @commands.has_guild_permissions(administrator=True)
+    async def set_verification_level(self, ctx: commands.Context, level: int):
+        if level < 0 or level > 1:
+            raise BadArgument("Could not parse the `level` arguement")
+        self.client.guild_cache[ctx.guild.id]["verification_level"] = level
+        await ctx.send("Set the servers verification level to {level}".format(level=level))
+        await self.client.pg_con.execute("UPDATE guilds SET verification_level = $1 WHERE id = $2", level, ctx.guild.id)
+    
 
 def setup(client: Bot):
     client.add_cog(Admin(client=client))

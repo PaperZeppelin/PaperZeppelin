@@ -77,6 +77,9 @@ async def on_ready():
         prefix = await client.pg_con.fetchval(
             "SELECT prefix FROM guilds WHERE id = $1", guild.id
         )
+        verification_level = await client.pg_con.fetchval(
+            "SELECT verification_level FROM guilds WHERE id = $1", guild.id
+        )
         mod_roles = []
         for record in await client.pg_con.fetch(
             "SELECT role_id FROM mod_roles WHERE guild_id = $1", guild.id
@@ -102,6 +105,7 @@ async def on_ready():
             "prefix": prefix,
             "mod_roles": mod_roles,
             "infractions": infractions,
+            "verification_level":  verification_level
         }
     print(client.guild_cache)
 
@@ -109,7 +113,7 @@ async def on_ready():
 @client.event
 async def on_guild_join(guild):
     # Build cache
-    client.guild_cache[guild.id] = {"prefix": "-", "mod_roles": [], "infractions": []}
+    client.guild_cache[guild.id] = {"prefix": "-", "mod_roles": [], "infractions": [], "verification_level": 0}
 
     # Dump logs
     client.logs[str(guild.id)] = [

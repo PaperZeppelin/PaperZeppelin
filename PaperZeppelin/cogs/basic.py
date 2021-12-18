@@ -1,24 +1,58 @@
 import datetime, time
+from io import StringIO
 import typing
+import aiohttp
+from aiohttp.client import ClientSession
 import discord
 from discord import message
+from discord import file
 from discord.components import SelectOption
 from discord.enums import DefaultAvatar
 from discord.ext import commands
 from discord.ext.commands.core import Command, Group, guild_only
 from discord.ext.commands.errors import BadArgument, MemberNotFound
+from discord.http import Route
 from discord.ui import view
 from discord.ui.select import Select
+from convertors import HTTPConvertors
 
 from utils import MessageUtils, MathUtils
 from views.help import HelpView
+from inspect import Parameter
+import re
+import os
+
+DISCORD_API_ENDPOINT = "https://discord.com/api/v9"
+URL_REGEX = re.compile("(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})")
+
+WHITELIST = [
+    DISCORD_API_ENDPOINT + "/users/@me",
+    "https://httpbin.org/get",
+    "https://httpbin.org/put",
+    "https://httpbin.org/delete",
+    "https://httpbin.org/post",
+    "https://httpbin.org/patch",
+]
+
+BLACKLIST = [
+    "https://www.google.com/"
+]
+
+
+def will_send(url: str) -> bool:
+    if url in WHITELIST:
+        return True
+    if url in BLACKLIST:
+        return False
+    return True
 
 
 class Basic(commands.Cog):
     def __init__(self, client) -> None:
         super().__init__()
-        self.client = client
+        self.client: commands.Bot = client
         self.client.help_command = Help()
+        self.session = aiohttp.ClientSession
 
     @commands.command(name="about")
     async def about(self, ctx: commands.Context):
