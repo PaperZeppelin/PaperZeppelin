@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS guilds (
     id bigint NOT NULL,
     prefix VARCHAR(25) NOT NULL DEFAULT '-',
-    verification_level smallint NOT NULL DEFAULT 0;
+    verification_level smallint NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS mod_roles (
     guild_id bigint NOT NULL,
