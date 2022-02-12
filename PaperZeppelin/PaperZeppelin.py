@@ -20,7 +20,6 @@ from utils import MessageUtils
 
 load_dotenv()
 
-# postgres://{user}:{password}@{hostname}:{port}/{database-name}
 async def get_prefix(client, message):
     if message.guild.id in client.guild_cache:
         return commands.when_mentioned_or(
@@ -144,13 +143,17 @@ for filename in os.listdir("./cogs"):
 
 
 async def create_db_pool():
-    client.pg_con = await asyncpg.create_pool(
-        database=os.getenv("PG_DATABASE"),
-        user=os.getenv("PG_USER"),
-        password=os.getenv("PG_PASS"),
-        host="127.0.0.1",
-    )
+    if(os.getenv("DATABASE_URL") is None):
+        client.pg_con = await asyncpg.create_pool(
+            database=os.getenv("PGDATABASE"),
+            user=os.getenv("PGUSER"),
+            password=os.getenv("PGPASSWORD"),
+            host=os.getenv("PGHOST"),
+            port=os.getenv("PGPORT"), 
+        )
+    else:
+        client.pg_con = await asyncpg.create_pool(dsn=os.getenv("DATABASE_URL"))
 
-
+print("PaperZeppelin is starting")
 client.loop.run_until_complete(create_db_pool())
 client.run(os.getenv("TOKEN"))
