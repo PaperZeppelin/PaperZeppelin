@@ -6,90 +6,82 @@ from discord.ext import commands
 from discord.ext.commands.help import HelpCommand
 
 
-async def gen_bot_help(help_command: HelpCommand, mapping) -> str:
-    message = f"**Paper Zeppelin help 1/1**\n```diff\n"
+async def gen_bot_help(help_command: HelpCommand, mapping: typing.Mapping[typing.Optional[commands.Cog], typing.List[commands.Command]]) -> str:
+    message = f"Need some help?\n"
+    description = "These are all the enabled cogs**{}** that are usable by you.\nNeed more help? Join our support server!\n\n".format('in ' + help_command.context.guild.name if help_command.context.guild is not None else '')
     for cog in mapping:
         if cog is not None:
-            filtered = await help_command.filter_commands(mapping[cog])
-            commands = "\n".join(
-                [
-                    f"  {command.name}{' ' * (14 - len(command.name))}{command.short_doc}{help_command.is_group(command)}"
-                    for command in filtered
-                ]
-            )
-            if cog.qualified_name == "Basic":
-                commands += (
-                    "\n  help          List all commands, and get info on commands"
-                    if cog.qualified_name == "Basic"
-                    else ""
-                )
-            message += (
-                f"- {cog.qualified_name}\n{commands}\n" if len(commands) > 0 else "\n"
-            )
-    message += f"You can get more info about a command (params and subcommands) by using '{help_command.context.clean_prefix}help <command>'\nCommands followed by ↪ have subcommands."
-    message += "\n```"
-    return message
+            if len(await help_command.filter_commands(mapping[cog])) > 0:
+                description += f"**{cog.qualified_name}** {'- ' + cog.description if cog.description else ''}\n"
+    return {
+        "message": message,
+        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    }
 
 
-async def gen_cog_help(help_command, cog) -> str:
-    message = f"**Paper Zeppelin help 1/1**\n```diff\n- {cog.qualified_name}\n"
+async def gen_cog_help(help_command: commands.HelpCommand, cog: commands.Cog) -> str:
+    message = f"Need some help with the {cog.qualified_name} cog?\n"
+    description = "These are all the enabled commands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(cog.qualified_name, '```' + cog.description + '```\n' if cog.description else '') 
     filtered = await help_command.filter_commands(cog.get_commands())
-    commands = "\n".join(
-        [
-            f"{command.name}{' ' * (14 - len(command.name))}{command.short_doc}{help_command.is_group(command)}"
-            for command in filtered
-        ]
-    )
-    commands += (
-        "\nhelp          List all commands, and get info on commands\n"
-        if cog.qualified_name == "Basic"
-        else ""
-    )
-    message += f"{commands}\n"
-    message += f"You can get more info about a command (params and subcommands) by using '{help_command.context.clean_prefix}help <command>'\nCommands followed by ↪ have subcommands."
-    message += "\n```"
-    return (
-        message
-        if len(filtered) > 0 or cog.qualified_name == "Basic"
-        else "🔒 You do not have permission to view this cog"
-    )
+    for command in filtered:
+        description += f"**{help_command.context.prefix}{command.qualified_name}** {'- ' + command.short_doc if command.short_doc else ''}\n"
+    return {
+        "message": message,
+        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    } if len(filtered) > 0 else {
+        "message": "🔒 You do not have permission to view this cog",
+        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this cog").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    }
 
 
-async def gen_group_help(help_command, group: commands.Group) -> str:
-    message = f"**Paper Zeppelin help 1/1**\n```diff\n"
+async def gen_group_help(help_command: commands.HelpCommand, group: commands.Group) -> str:
+    message = f"Need some help with the {group.qualified_name} command?\n"
+    description = "These are all the enabled subcommands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(group.qualified_name, '```' + group.short_doc + '```\n' if group.short_doc else '') 
     filtered = await help_command.filter_commands(group.commands)
-    message += f"{help_command.context.clean_prefix}{group.full_parent_name} [{group.name}{'|' + '|'.join(group.aliases) if len(group.aliases) > 0 else ''}]\n"
-    message += f"\n{group.short_doc}\n"
-    message += "\nSubcommands:\n"
-    commands = "\n".join(
-        [
-            f"  {command.name}{' ' * (14 - len(command.name))}{command.short_doc}{help_command.is_group(command)}"
-            for index, command in enumerate(group.commands)
-        ]
-    )
-    message += f"{commands}\n"
-    message += f"You can get more info about a command (params and subcommands) by using '{help_command.context.clean_prefix}help <command>'\nCommands followed by ↪ have subcommands."
-    message += "\n```"
-    return (
-        message
-        if len(filtered) > 0 or group.cog.qualified_name == "Basic"
-        else "🔒 You do not have permission to view this command"
-    )
+    for command in filtered:
+        description += f"**{help_command.context.prefix}{command.qualified_name}** {'- ' + command.short_doc if command.short_doc else ''}\n"
+    return {
+        "message": message,
+        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    } if len(filtered) > 0 else {
+        "message": "🔒 You do not have permission to view this command's subcommands",
+        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this command's subcommands").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    }
+    
+async def gen_command_help(help_command: commands.HelpCommand, command: commands.Command) -> str:
+    message = f"Need some help?\n"
+    description = f"**{help_command.context.prefix}{command.qualified_name}**"
+    if command.short_doc:
+        description += f"\n```{command.short_doc}```"
+    if command.clean_params:
+        description += "\n__Paramaters__\n"
+        for (param_name, param_type) in command.clean_params.items():
+            req = 'True' if ((param_type.kind == param_type.KEYWORD_ONLY) or (param_type.kind == param_type.VAR_KEYWORD)) else 'False'
+            description += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {req}\n\n"
+                       
 
-
-async def gen_command_help(help_command, command) -> str:
-    message = f"**Paper Zeppelin help 1/1**\n```diff\n"
     filtered = await help_command.filter_commands([command])
-    commands = (
-        f"{help_command.context.clean_prefix}  {command.name}\n\n{command.short_doc}"
-    )
-    message += f"{commands}\n"
-    message += "\n```"
-    return (
-        message
-        if len(filtered) > 0
-        else "🔒 You do not have permission to view this command"
-    )
+    return {
+        "message": message,
+        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    } if len(filtered) > 0 else {
+        "message": "🔒 You do not have permission to view this command's subcommands",
+        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this command's subcommands").set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
+        )
+    }
 
 
 def build(**kwargs):

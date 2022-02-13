@@ -22,32 +22,10 @@ from inspect import Parameter
 import re
 import os
 
-DISCORD_API_ENDPOINT = "https://discord.com/api/v9"
-URL_REGEX = re.compile(
-    "(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})"
-)
-
-WHITELIST = [
-    DISCORD_API_ENDPOINT + "/users/@me",
-    "https://httpbin.org/get",
-    "https://httpbin.org/put",
-    "https://httpbin.org/delete",
-    "https://httpbin.org/post",
-    "https://httpbin.org/patch",
-]
-
-BLACKLIST = ["https://www.google.com/"]
-
-
-def will_send(url: str) -> bool:
-    if url in WHITELIST:
-        return True
-    if url in BLACKLIST:
-        return False
-    return True
 
 
 class Basic(commands.Cog):
+    """Basic utilities/information"""
     def __init__(self, client) -> None:
         super().__init__()
         self.client: commands.Bot = client
@@ -81,7 +59,7 @@ class Basic(commands.Cog):
     @commands.guild_only()
     async def userinfo(
         self,
-        ctx: commands.Context,
+        ctx: commands.Context, *,
         target: typing.Union[discord.Member, discord.User] = None,
     ):
         await ctx.send(
@@ -223,37 +201,68 @@ class Help(commands.HelpCommand):
 
     async def send_bot_help(self, mapping):
 
-        message = await MessageUtils.gen_bot_help(self, mapping)
-        view = HelpView(self, self.context.bot)
-
-        await self.get_destination().send(content=message, view=view)
+        help = await MessageUtils.gen_bot_help(self, mapping)
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
+                name="influx_round",
+                animated=False,
+                id=936158443998416947
+            ))
+        )
+        await self.get_destination().send(content=help["message"], embeds=[help["embed"]], view=view)
 
     async def send_cog_help(self, cog: commands.Cog):
 
-        message = await MessageUtils.gen_cog_help(self, cog)
-        view = HelpView(self, self.context.bot)
-
+        help = await MessageUtils.gen_cog_help(self, cog)
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
+                name="influx_round",
+                animated=False,
+                id=936158443998416947
+            ))
+        )
         await self.get_destination().send(
-            content=message, view=view.set_default(cog.qualified_name)
+            content=help["message"],
+            embeds=[help["embed"]],
+            view=view
         )
 
     async def send_group_help(self, group: commands.Group):
 
-        message = await MessageUtils.gen_group_help(self, group)
-        view = HelpView(self, self.context.bot)
-
+        help = await MessageUtils.gen_group_help(self, group)
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
+                name="influx_round",
+                animated=False,
+                id=936158443998416947
+            ))
+        )
         await self.get_destination().send(
-            content=message, view=view.set_default(group.cog_name)
+            content=help["message"],
+            embeds=[help["embed"]],
+            view=view
         )
 
     async def send_command_help(self, command: commands.Command):
 
-        message = await MessageUtils.gen_command_help(self, command)
-        view = HelpView(self, self.context.bot)
-
-        await self.get_destination().send(
-            content=message, view=view.set_default(command.cog_name)
+        help = await MessageUtils.gen_command_help(self, command)
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
+                name="influx_round",
+                animated=False,
+                id=936158443998416947
+            ))
         )
+        await self.get_destination().send(
+            content=help["message"],
+            embeds=[help["embed"]],
+            view=view
+        )
+        
 
     async def command_not_found(self, string):
         return f"I can't seem to find any cog or command named {string}"
