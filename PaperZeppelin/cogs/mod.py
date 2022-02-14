@@ -76,29 +76,14 @@ class Mod(commands.Cog):
             reason = " ".join(inputs[1:])
 
         if member.id == ctx.author.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to  ban themself, {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(f"You cannot ban yourself!")
             return
 
         if member.id == ctx.guild.owner_id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban the owner of the server {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send("You cannot ban the owner of the server!")
             return
 
         if member.id == self.client.user.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban me {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(
                 f"I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
             )
@@ -112,11 +97,6 @@ class Mod(commands.Cog):
                 )
                 or ctx.author.id == ctx.guild.owner_id
             ):
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) banned {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-                )
-                update_logs(self.client.logs)
                 await ctx.guild.ban(user=member, reason=reason, delete_message_days=0)
                 await self.client.pg_con.execute(
                     "INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'BAN', $4)",
@@ -143,21 +123,11 @@ class Mod(commands.Cog):
                 )
                 return
             else:
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban the moderator {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-                )
-                update_logs(self.client.logs)
                 await ctx.channel.send(
                     f"You cannot ban {member.name}#{member.discriminator} as they are a moderator"
                 )
                 return
         except Forbidden:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) failed to ban {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''} (target was above me in the hierachy)",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(
                 f"I cannot ban {member.name}#{member.discriminator} as they have a higher role then me"
             )
@@ -171,11 +141,6 @@ class Mod(commands.Cog):
         ):
             raise MissingPermissions
         time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.client.logs[str(ctx.guild.id)].insert(
-            0,
-            f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) used {ctx.prefix}clean",
-        )
-        update_logs(self.client.logs)
 
     @clean_base_command.command(name="cleanban")
     @commands.guild_only()
@@ -218,29 +183,15 @@ class Mod(commands.Cog):
             reason = " ".join(inputs[2:])
 
         if member.id == ctx.author.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to  ban themself, {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(f"You cannot ban yourself!")
             return
 
         if member.id == ctx.guild.owner_id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban the owner of the server {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send("You cannot ban the owner of the server!")
             return
 
         if member.id == self.client.user.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban me {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
+
             await ctx.channel.send(
                 f"I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
             )
@@ -254,11 +205,6 @@ class Mod(commands.Cog):
                 )
                 or ctx.author.id == ctx.guild.owner_id
             ):
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) banned {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''} and deleted their message history for the past {days} days",
-                )
-                update_logs(self.client.logs)
                 await ctx.guild.ban(
                     user=member, reason=reason, delete_message_days=days
                 )
@@ -287,21 +233,11 @@ class Mod(commands.Cog):
                 )
                 return
             else:
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban the moderator {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-                )
-                update_logs(self.client.logs)
                 await ctx.channel.send(
                     f"You cannot ban {member.name}#{member.discriminator} as they are a moderator"
                 )
                 return
         except Forbidden:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) failed to ban {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''} (target was above me in the hierachy)",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(
                 f"I cannot ban {member.name}#{member.discriminator} as they have a higher role then me"
             )
@@ -339,29 +275,14 @@ class Mod(commands.Cog):
             reason = " ".join(inputs[1:])
 
         if member.id == ctx.author.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to kick themself, {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(f"You cannot kick yourself!")
             return
 
         if member.id == ctx.guild.owner_id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to kick the owner of the server {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send("You cannot kick the owner of the server!")
             return
 
         if member.id == self.client.user.id:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to ban me {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(
                 f"I am unable to kick myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
             )
@@ -375,11 +296,6 @@ class Mod(commands.Cog):
                 )
                 or ctx.author.id == ctx.guild.owner_id
             ):
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) banned {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-                )
-                update_logs(self.client.logs)
                 await ctx.guild.kick(user=member, reason=reason)
                 await self.client.pg_con.execute(
                     "INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'KICK', $4)",
@@ -406,21 +322,11 @@ class Mod(commands.Cog):
                 )
                 return
             else:
-                self.client.logs[str(ctx.guild.id)].insert(
-                    0,
-                    f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) attempted (failed) to kick the moderator {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''}",
-                )
-                update_logs(self.client.logs)
                 await ctx.channel.send(
                     f"You cannot kick {member.name}#{member.discriminator} as they are a moderator"
                 )
                 return
         except Forbidden:
-            self.client.logs[str(ctx.guild.id)].insert(
-                0,
-                f"{time}{' ' * 4}{ctx.author.name}#{ctx.author.discriminator} ({ctx.author.id}) failed to kick {member.name}#{member.discriminator} ({member.id}) {f'for reason: {reason}' if reason is not None else ''} (target was above me in the hierachy)",
-            )
-            update_logs(self.client.logs)
             await ctx.channel.send(
                 f"I cannot kick {member.name}#{member.discriminator} as they have a higher role then me"
             )

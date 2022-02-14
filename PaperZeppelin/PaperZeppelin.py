@@ -36,29 +36,11 @@ client = commands.Bot(
 )
 client.remove_command("help")
 
-with open(f"logs.json", "r") as f:
-    logs = json.load(f)
-
-client.logs = logs
-
 client.guild_cache = dict()
 client.user_messages = 0
 client.self_messages = 0
 client.bot_messages = 0
 
-
-def get_logs(guild_id: str):
-    with open(f"logs.json", "r") as f:
-        logs = json.load(f)
-    return logs[guild_id]
-
-
-def update_logs(logs):
-    with open(f"logs.json", "w") as f:
-        json.dump(logs, f, indent=4)
-
-
-update_logs(client.logs)
 
 
 @client.event
@@ -72,7 +54,9 @@ async def on_ready():
         ),
     )
     client.start_time = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    now = time.perf_counter()
     for guild in client.guilds:
+        print('caching guild {guild_id} : {guild_name}'.format(guild_id=guild.id, guild_name = guild.name))
         prefix = await client.pg_con.fetchval(
             "SELECT prefix FROM guilds WHERE id = $1", guild.id
         )
@@ -100,14 +84,20 @@ async def on_ready():
                         "reason": inf.get("reason"),
                     }
                 )
+        log_fetch = await client.pg_con.fetchrow("SELECT * FROM logging WHERE guild_id = $1", guild.id)
+        loggers = {
+            "command": log_fetch.get("command")
+        }
         client.guild_cache[guild.id] = {
             "prefix": prefix,
             "mod_roles": mod_roles,
             "infractions": infractions,
             "verification_level": verification_level,
+            "loggers": loggers
         }
+        print('cached guild {guild_id} : {guild_name}'.format(guild_id=guild.id, guild_name = guild.name))
+    print('cached in {time}'.format(time=time.perf_counter() - now))
     print(client.guild_cache)
-
 
 @client.event
 async def on_guild_join(guild):
@@ -117,19 +107,17 @@ async def on_guild_join(guild):
         "mod_roles": [],
         "infractions": [],
         "verification_level": 0,
+        "logging": {
+            "command": None
+        }
     }
-
-    # Dump logs
-    client.logs[str(guild.id)] = [
-        f"{datetime.datetime.utcnow().replace(microsecond=0).isoformat()}{' ' * 4}{client.user.id} ({client.user.name}#{client.user.discriminator}) has joined the server"
-    ]
-    update_logs(client.logs)
-    with open(f"logs.json", "w") as f:
-        json.dump(client.logs, f, indent=4)
 
     # Handle database
     await client.pg_con.execute(
         "INSERT INTO guilds (id, prefix) VALUES ($1, '-')", guild.id
+    )
+    await client.pg_con.execute(
+        "INSERT INTO logging (guild_id) VALUES ($1)", guild.id
     )
     # Infractions + mod_roles do not need to be built on guild_join
 
@@ -154,6 +142,32 @@ async def create_db_pool():
     else:
         client.pg_con = await asyncpg.create_pool(dsn=os.getenv("DATABASE_URL"))
 
+@client.check_once
+async def log_command(ctx: commands.Context):
+    if ctx.guild:
+        if client.guild_cache[ctx.guild.id]["loggers"]["command"]:
+            try:
+                channel = client.get_channel(client.guild_cache[ctx.guild.id]["loggers"]["command"])
+                if not channel:
+                    channel = await client.fetch_channel(client.guild_cache[ctx.guild.id]["loggers"]["command"])
+                await channel.send(
+                    embeds=[
+                        discord.Embed(
+                            colour=0x2F3136,
+                            title="Command executed!",
+                            timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(
+                                  tzinfo=datetime.timezone.utc),
+                        ).set_thumbnail(url=ctx.author.avatar.url)
+                        .add_field(name="User", value='`{u}#{d}`, {id}'.format(u=ctx.author.name, d=ctx.author.discriminator, id=ctx.author.id), inline=True)
+                        .add_field(name="Command ran", value="`{c}`".format(c=ctx.message.clean_content), inline=True)
+                    ]
+                )
+            except :
+                client.guild_cache[ctx.guild.id]["loggers"]["command"] = None
+                await client.pg_con.execute("UPDATE logging SET command = NULL WHERE guild_id = $1", ctx.guild.id)
+    return True
+
 print("PaperZeppelin is starting")
 client.loop.run_until_complete(create_db_pool())
 client.run(os.getenv("TOKEN"))
+

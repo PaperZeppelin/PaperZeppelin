@@ -16,3 +16,8 @@ CREATE TABLE IF NOT EXISTS infractions (
     type VARCHAR(15) NOT NULL,
     reason VARCHAR(1000)
 )
+
+CREATE TABLE IF NOT EXISTS logging (
+    guild_id bigint PRIMARY KEY NOT NULL,
+    command bigint
+)
