@@ -6,59 +6,105 @@ from discord.ext import commands
 from discord.ext.commands.help import HelpCommand
 
 
-async def gen_bot_help(help_command: HelpCommand, mapping: typing.Mapping[typing.Optional[commands.Cog], typing.List[commands.Command]]) -> str:
+async def gen_bot_help(
+    help_command: HelpCommand,
+    mapping: typing.Mapping[
+        typing.Optional[commands.Cog], typing.List[commands.Command]
+    ],
+) -> str:
     message = f"Need some help?\n"
-    description = "These are all the enabled cogs**{}** that are usable by you.\nNeed more help? Join our support server!\n\n".format('in ' + help_command.context.guild.name if help_command.context.guild is not None else '')
+    description = "These are all the enabled cogs**{}** that are usable by you.\nNeed more help? Join our support server!\n\n".format(
+        "in " + help_command.context.guild.name
+        if help_command.context.guild is not None
+        else ""
+    )
     for cog in mapping:
         if cog is not None:
             if len(await help_command.filter_commands(mapping[cog])) > 0:
                 description += f"**{cog.qualified_name}** {'- ' + cog.description if cog.description else ''}\n"
     return {
         "message": message,
-        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
+        "embed": discord.Embed(
+            colour=0x5865F2, description=description, title="PaperZeppelin Help"
+        ).set_footer(
+            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+            icon_url=help_command.context.author.display_avatar.url,
+        ),
     }
 
 
 async def gen_cog_help(help_command: commands.HelpCommand, cog: commands.Cog) -> str:
     message = f"Need some help with the {cog.qualified_name} cog?\n"
-    description = "These are all the enabled commands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(cog.qualified_name, '```' + cog.description + '```\n' if cog.description else '') 
+    description = "These are all the enabled commands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(
+        cog.qualified_name, "```" + cog.description + "```\n" if cog.description else ""
+    )
     filtered = await help_command.filter_commands(cog.get_commands())
     for command in filtered:
         description += f"**{help_command.context.prefix}{command.qualified_name}** {'- ' + command.short_doc if command.short_doc else ''}\n"
-    return {
-        "message": message,
-        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    } if len(filtered) > 0 else {
-        "message": "🔒 You do not have permission to view this cog",
-        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this cog").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    }
+    return (
+        {
+            "message": message,
+            "embed": discord.Embed(
+                colour=0x5865F2, description=description, title="PaperZeppelin Help"
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+        if len(filtered) > 0
+        else {
+            "message": "🔒 You do not have permission to view this cog",
+            "embed": discord.Embed(
+                colour=0xED4245,
+                title="This is awkward",
+                description="Looks like you do not have permission to view the the contents of this cog",
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+    )
 
 
-async def gen_group_help(help_command: commands.HelpCommand, group: commands.Group) -> str:
+async def gen_group_help(
+    help_command: commands.HelpCommand, group: commands.Group
+) -> str:
     message = f"Need some help with the {group.qualified_name} command?\n"
-    description = "These are all the enabled subcommands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(group.qualified_name, '```' + group.short_doc + '```\n' if group.short_doc else '') 
+    description = "These are all the enabled subcommands that are usable by you.\nNeed more help? Join our support server!\n\n__{}__\n{}".format(
+        group.qualified_name,
+        "```" + group.short_doc + "```\n" if group.short_doc else "",
+    )
     filtered = await help_command.filter_commands(group.commands)
     for command in filtered:
         description += f"**{help_command.context.prefix}{command.qualified_name}** {'- ' + command.short_doc if command.short_doc else ''}\n"
-    return {
-        "message": message,
-        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    } if len(filtered) > 0 else {
-        "message": "🔒 You do not have permission to view this command's subcommands",
-        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this command's subcommands").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    }
-    
-async def gen_command_help(help_command: commands.HelpCommand, command: commands.Command) -> str:
+    return (
+        {
+            "message": message,
+            "embed": discord.Embed(
+                colour=0x5865F2, description=description, title="PaperZeppelin Help"
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+        if len(filtered) > 0
+        else {
+            "message": "🔒 You do not have permission to view this command's subcommands",
+            "embed": discord.Embed(
+                colour=0xED4245,
+                title="This is awkward",
+                description="Looks like you do not have permission to view the the contents of this command's subcommands",
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+    )
+
+
+async def gen_command_help(
+    help_command: commands.HelpCommand, command: commands.Command
+) -> str:
     message = f"Need some help?\n"
     description = f"**{help_command.context.prefix}{command.qualified_name}**"
     if command.short_doc:
@@ -66,22 +112,40 @@ async def gen_command_help(help_command: commands.HelpCommand, command: commands
     if command.clean_params:
         description += "\n__Paramaters__\n"
         for (param_name, param_type) in command.clean_params.items():
-            req = 'True' if ((param_type.kind == param_type.KEYWORD_ONLY) or (param_type.kind == param_type.VAR_KEYWORD)) else 'False'
+            req = (
+                "True"
+                if (
+                    (param_type.kind == param_type.KEYWORD_ONLY)
+                    or (param_type.kind == param_type.VAR_KEYWORD)
+                )
+                else "False"
+            )
             description += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {req}\n\n"
-                       
 
     filtered = await help_command.filter_commands([command])
-    return {
-        "message": message,
-        "embed": discord.Embed(colour=0x5865F2, description=description, title="PaperZeppelin Help").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    } if len(filtered) > 0 else {
-        "message": "🔒 You do not have permission to view this command's subcommands",
-        "embed": discord.Embed(colour=0xED4245, title="This is awkward", description="Looks like you do not have permission to view the the contents of this command's subcommands").set_footer(
-            text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}", icon_url=help_command.context.author.display_avatar.url
-        )
-    }
+    return (
+        {
+            "message": message,
+            "embed": discord.Embed(
+                colour=0x5865F2, description=description, title="PaperZeppelin Help"
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+        if len(filtered) > 0
+        else {
+            "message": "🔒 You do not have permission to view this command's subcommands",
+            "embed": discord.Embed(
+                colour=0xED4245,
+                title="This is awkward",
+                description="Looks like you do not have permission to view the the contents of this command's subcommands",
+            ).set_footer(
+                text=f"Requested by {help_command.context.author.name}#{help_command.context.author.discriminator}",
+                icon_url=help_command.context.author.display_avatar.url,
+            ),
+        }
+    )
 
 
 def build(**kwargs):

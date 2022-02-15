@@ -224,7 +224,6 @@ class Admin(commands.Cog):
         else:
             await ctx.channel.send(f"Only server admins can use this command!")
 
-
     @configure.group(name="verification")
     @commands.guild_only()
     @commands.has_guild_permissions(administrator=True)

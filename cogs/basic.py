@@ -23,9 +23,9 @@ import re
 import os
 
 
-
 class Basic(commands.Cog):
     """Basic utilities/information"""
+
     def __init__(self, client) -> None:
         super().__init__()
         self.client: commands.Bot = client
@@ -59,7 +59,8 @@ class Basic(commands.Cog):
     @commands.guild_only()
     async def userinfo(
         self,
-        ctx: commands.Context, *,
+        ctx: commands.Context,
+        *,
         target: typing.Union[discord.Member, discord.User] = None,
     ):
         await ctx.send(
@@ -204,29 +205,35 @@ class Help(commands.HelpCommand):
         help = await MessageUtils.gen_bot_help(self, mapping)
         view = discord.ui.View()
         view.add_item(
-            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
-                name="influx_round",
-                animated=False,
-                id=936158443998416947
-            ))
+            discord.ui.Button(
+                url="https://discord.gg/DbdMRVCbKG",
+                style=discord.ButtonStyle.link,
+                label="Support server",
+                emoji=discord.PartialEmoji(
+                    name="influx_round", animated=False, id=936158443998416947
+                ),
+            )
         )
-        await self.get_destination().send(content=help["message"], embeds=[help["embed"]], view=view)
+        await self.get_destination().send(
+            content=help["message"], embeds=[help["embed"]], view=view
+        )
 
     async def send_cog_help(self, cog: commands.Cog):
 
         help = await MessageUtils.gen_cog_help(self, cog)
         view = discord.ui.View()
         view.add_item(
-            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
-                name="influx_round",
-                animated=False,
-                id=936158443998416947
-            ))
+            discord.ui.Button(
+                url="https://discord.gg/DbdMRVCbKG",
+                style=discord.ButtonStyle.link,
+                label="Support server",
+                emoji=discord.PartialEmoji(
+                    name="influx_round", animated=False, id=936158443998416947
+                ),
+            )
         )
         await self.get_destination().send(
-            content=help["message"],
-            embeds=[help["embed"]],
-            view=view
+            content=help["message"], embeds=[help["embed"]], view=view
         )
 
     async def send_group_help(self, group: commands.Group):
@@ -234,16 +241,17 @@ class Help(commands.HelpCommand):
         help = await MessageUtils.gen_group_help(self, group)
         view = discord.ui.View()
         view.add_item(
-            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
-                name="influx_round",
-                animated=False,
-                id=936158443998416947
-            ))
+            discord.ui.Button(
+                url="https://discord.gg/DbdMRVCbKG",
+                style=discord.ButtonStyle.link,
+                label="Support server",
+                emoji=discord.PartialEmoji(
+                    name="influx_round", animated=False, id=936158443998416947
+                ),
+            )
         )
         await self.get_destination().send(
-            content=help["message"],
-            embeds=[help["embed"]],
-            view=view
+            content=help["message"], embeds=[help["embed"]], view=view
         )
 
     async def send_command_help(self, command: commands.Command):
@@ -251,18 +259,18 @@ class Help(commands.HelpCommand):
         help = await MessageUtils.gen_command_help(self, command)
         view = discord.ui.View()
         view.add_item(
-            discord.ui.Button(url="https://discord.gg/DbdMRVCbKG", style=discord.ButtonStyle.link, label="Support server", emoji=discord.PartialEmoji(
-                name="influx_round",
-                animated=False,
-                id=936158443998416947
-            ))
+            discord.ui.Button(
+                url="https://discord.gg/DbdMRVCbKG",
+                style=discord.ButtonStyle.link,
+                label="Support server",
+                emoji=discord.PartialEmoji(
+                    name="influx_round", animated=False, id=936158443998416947
+                ),
+            )
         )
         await self.get_destination().send(
-            content=help["message"],
-            embeds=[help["embed"]],
-            view=view
+            content=help["message"], embeds=[help["embed"]], view=view
         )
-        
 
     async def command_not_found(self, string):
         return f"I can't seem to find any cog or command named {string}"
