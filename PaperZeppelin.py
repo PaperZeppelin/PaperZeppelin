@@ -124,10 +124,7 @@ async def on_guild_join(guild):
 
 for filename in os.listdir("./cogs"):
     if filename.endswith(".py"):
-        try:
             client.load_extension(f"cogs.{filename[:-3]}")
-        except commands.ExtensionFailed:
-            pass
 
 
 async def create_db_pool():

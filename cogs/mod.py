@@ -18,9 +18,6 @@ from discord.ext.commands.errors import CommandNotFound, MissingPermissions
 import json
 import functools
 
-from PaperZeppelin import update_logs
-
-
 class Mod(commands.Cog):
     def __init__(self, client: Client) -> None:
         super().__init__()
@@ -50,13 +47,14 @@ class Mod(commands.Cog):
     async def ban_command(self, ctx: commands.Context, *inputs):
         """Ban a user from the server"""
         if not self.staff_or_permission(
-            ctx.author, ctx.author.guild_permissions.ban_members
+            ctx, ctx.author, ctx.author.guild_permissions.ban_members
         ):
             await ctx.channel.send(f"🔒 You are not allowed to use this command")
             return
         if len(inputs) == 0:
+            
             await ctx.channel.send(
-                f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}ban [member] <reason>`"
+                "Missing required arguement `member`\nCommand usage: `{}ban [member] <reason>`".format(self.client.guild_cache[ctx.guild.id]["prefix"])
             )
             return
 
@@ -85,7 +83,7 @@ class Mod(commands.Cog):
 
         if member.id == self.client.user.id:
             await ctx.channel.send(
-                f"I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
+                "I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(self.client.guild_cache[ctx.guild.id]["prefix"])
             )
             return
 
@@ -152,9 +150,7 @@ class Mod(commands.Cog):
         ):
             raise MissingPermissions
         if len(inputs) == 0:
-            await ctx.channel.send(
-                f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}ban [member] <reason>`"
-            )
+            await ctx.channel.send("Missing required arguement `member`\nCommand usage: `{}ban [member] <reason>`".format(self.client.guild_cache[ctx.guild.id]["prefix"]))
             return
 
         time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -193,7 +189,7 @@ class Mod(commands.Cog):
         if member.id == self.client.user.id:
 
             await ctx.channel.send(
-                f"I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
+                "I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(self.client.guild_cache[ctx.guild.id]["prefix"])
             )
             return
 
@@ -255,7 +251,7 @@ class Mod(commands.Cog):
             return
         if len(inputs) == 0:
             await ctx.channel.send(
-                f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}kick [member] <reason>`"
+                "Missing required arguement `member`\nCommand usage: `{}kick [member] <reason>`".format(self.client.guild_cache[ctx.guild.id]["prefix"])
             )
             return
 
@@ -284,7 +280,7 @@ class Mod(commands.Cog):
 
         if member.id == self.client.user.id:
             await ctx.channel.send(
-                f"I am unable to kick myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{self.client.prefix[str(ctx.guild.id)]}leave`"
+                "I am unable to kick myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(self.client.guild_cache[ctx.guild.id]["prefix"])
             )
             return
 
@@ -447,7 +443,7 @@ class Mod(commands.Cog):
         #     await ctx.channel.send(f"🔒 You are not allowed to use this command")
         #     return
         # if(len(members) == 0):
-        #     await ctx.channel.send(f"Missing required arguement `member`\nCommand usage: `{self.client.prefix[str(ctx.guild.id)]}kick [member] <reason>`")
+        #     await ctx.channel.send(f"Missing required arguement `member`\nCommand usage: `{self.client.guild_cache[ctx.guild.id]["prefix"]}kick [member] <reason>`")
         #     return
 
         # time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
