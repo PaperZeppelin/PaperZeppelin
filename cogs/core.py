@@ -41,7 +41,7 @@ class Core(commands.Cog):
         raise error
 
     @commands.Cog.listener()
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         if message.author.bot:
             if message.author.id == self.client.user.id:
                 self.client.self_messages += 1
