@@ -35,6 +35,9 @@ class Core(commands.Cog):
         if isinstance(error, BadArgument):
             await ctx.send("Failed to convert your arguments")
             return
+        if isinstance(error, commands.NotOwner):
+            await ctx.send("You are not the bot owner.")
+            return
         raise error
 
     @commands.Cog.listener()
