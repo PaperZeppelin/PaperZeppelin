@@ -6,18 +6,19 @@ import typing
 import discord
 import time
 
-try:
-    import config
-    config_file = True
-except ModuleNotFoundError:
-    print("Config file not found")
-    config_file = False
-    if os.getenv("TOKEN") is None:
-        print("Environment Variable's are not valid")
-        sys.exit(-1)
-
 class Client(commands.Bot):
     def __init__(self, **options):
+        try:
+            import config
+            self.config_file = True
+            self.config = config
+            print("Found config file")
+        except ModuleNotFoundError:
+            print("Config file not found")
+            self.config_file = False
+            if os.getenv("TOKEN") is None:
+                print("Environment Variable's are not valid")
+                sys.exit(-1)
         intents = discord.Intents(
             guild_messages=True, members=True, typing=False, guilds=True, bans=True, message_content=True
         )
@@ -40,9 +41,9 @@ class Client(commands.Bot):
         return commands.when_mentioned_or(self.guild_cache[message.guild.id]['prefix'])(self, message)
 
     def _get_variable(self, key: str, *, fail_fast: bool = False, exit: bool = False) -> typing.Any:
-        if config_file:
+        if self.config_file:
             try:
-                attr = getattr(config, key)
+                attr = getattr(self.config, key)
                 if attr:
                     return attr
             except AttributeError:

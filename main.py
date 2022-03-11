@@ -17,6 +17,7 @@ import aiohttp
 from enums.Permissions import Permissions
 from utils import BitUtils
 from utils import MessageUtils
+import traceback
 
 
 load_dotenv()
@@ -63,32 +64,22 @@ for filename in os.listdir("./cogs"):
 @client.check_once
 async def log_command(ctx: commands.Context):
     if ctx.guild:
-        if client.guild_cache[ctx.guild.id]["loggers"]["command"]:
-            try:
-                channel = client.get_channel(
-                    client.guild_cache[ctx.guild.id]["loggers"]["command"]
-                )
+        try:
+            if client.guild_cache[ctx.guild.id]["loggers"]["command"]:
+                channel = client.get_channel(client.guild_cache[ctx.guild.id]["loggers"]["command"])
                 if not channel:
-                    channel = await client.fetch_channel(
-                        client.guild_cache[ctx.guild.id]["loggers"]["command"]
-                    )
+                    channel = await client.fetch_channel(client.guild_cache[ctx.guild.id]["loggers"]["command"])
                 await channel.send(
                     embeds=[
                         discord.Embed(
                             colour=0x2F3136,
                             title="Command executed!",
-                            timestamp=datetime.datetime.utcfromtimestamp(
-                                time.time()
-                            ).replace(tzinfo=datetime.timezone.utc),
+                            timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc),
                         )
                         .set_thumbnail(url=ctx.author.avatar.url)
                         .add_field(
                             name="User",
-                            value="`{u}#{d}`, {id}".format(
-                                u=ctx.author.name,
-                                d=ctx.author.discriminator,
-                                id=ctx.author.id,
-                            ),
+                            value="`{u}#{d}`, {id}".format(u=ctx.author.name, d=ctx.author.discriminator,id=ctx.author.id),
                             inline=True,
                         )
                         .add_field(
@@ -98,14 +89,13 @@ async def log_command(ctx: commands.Context):
                         )
                     ]
                 )
-            except:
-                client.guild_cache[ctx.guild.id]["loggers"]["command"] = None
-                await client.db.execute(
-                    "UPDATE logging SET command = NULL WHERE guild_id = $1",
-                    ctx.guild.id,
-                )
+        except Exception as e:
+            traceback.print_exc()
+            client.guild_cache[ctx.guild.id]["loggers"] = {"command": None}
+            await client.db.execute("UPDATE logging SET command = NULL WHERE guild_id = $1", ctx.guild.id)
+
     return True
 
 
 print("PaperZeppelin is starting")
-client.run(os.getenv("TOKEN"))
+client.run(client._get_variable("TOKEN", exit=True))
