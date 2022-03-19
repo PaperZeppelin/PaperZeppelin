@@ -39,5 +39,5 @@ class Events(commands.Cog):
         )
 
 
-def setup(client: Bot):
-    client.add_cog(Events(client=client))
+async def setup(client: Bot):
+    await client.add_cog(Events(client=client))

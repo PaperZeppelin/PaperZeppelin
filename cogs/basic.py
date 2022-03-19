@@ -4,7 +4,7 @@ import typing
 import aiohttp
 from aiohttp.client import ClientSession
 import discord
-from discord import message
+from discord import ButtonStyle, message
 from discord import file
 from discord.components import SelectOption
 from discord.enums import DefaultAvatar
@@ -30,14 +30,10 @@ class Basic(commands.Cog):
         super().__init__()
         self.client: commands.Bot = client
         self.client.help_command = Help()
-        self.session = aiohttp.ClientSession
 
     @commands.command(name="about")
     async def about(self, ctx: commands.Context):
-        uptime = (
-            datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-            - self.client.start_time
-        )
+        uptime = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc) - self.client.start_time
         hours, remainder = divmod(int(uptime.total_seconds()), 3600)
         days, hours = divmod(hours, 24)
         minutes, seconds = divmod(remainder, 60)
@@ -53,29 +49,51 @@ class Basic(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(
-        name="userinfo", aliases=["user", "whois", "user_info", "user_profile"]
-    )
-    @commands.guild_only()
-    async def userinfo(
-        self,
-        ctx: commands.Context,
-        *,
-        target: typing.Union[discord.Member, discord.User] = None,
-    ):
-        await ctx.send(
-            embed=MessageUtils.build(type="user_info", member=target, issuer=ctx.author)
+    @commands.command(name="userinfo", aliases=["user", "whois", "user_info", "user_profile"])
+    async def userinfo(self, ctx: commands.Context, *, t: typing.Union[discord.Member, discord.User] = None):
+        target = ctx.author if t is None else t
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        is_member = isinstance(target, discord.Member)
+        embed = discord.Embed(colour=target.top_role.colour if is_member else 0x00CEA2, timestamp=now)
+        embed.set_thumbnail(url=target.avatar.url)
+        embed.add_field(name="Name", value=f"{target.name}#{target.discriminator}", inline=True)
+        embed.add_field(name="ID", value=f"{target.id}", inline=True)
+        embed.add_field(name="Bot account", value=f"{target.bot}", inline=True)
+        embed.add_field(name="Avatar url", value=f"[Avatar url]({target.avatar.url})", inline=True)
+        if is_member:
+            embed.add_field(name="Nickname", value=target.nick, inline=False)
+        if is_member:
+            role_list = [role.mention for role in reversed(target.roles) if role is not target.guild.default_role]
+            if len(role_list) > 40:
+                embed.add_field(name="Roles", value="Too many roles!", inline=False)
+            elif len(role_list) > 0:
+                embed.add_field(name="Roles", value=" ".join(role_list), inline=False)
+            else:
+                embed.add_field(name="Roles", value="No roles", inline=False)
+            embed.add_field(
+                name="Joined at",
+                value=f"{(now - target.joined_at).days} days ago, (``{target.joined_at}+00:00``)",
+                inline=True,
+            )
+        embed.add_field(
+            name="Created at",
+            value=f"{(now - target.created_at).days} days ago, (``{target.created_at}+00:00``)",
+            inline=True,
         )
-
-    @userinfo.error
-    async def userinfo_error(self, ctx, error):
-        if isinstance(error, commands.MemberNotFound):
-            await ctx.send("I can't find that member")
-            return
+        embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=ctx.author.avatar.url)
+        view=discord.ui.View().add_item(discord.ui.Button(
+            style=ButtonStyle.link,
+            url=f"discord://-/users/{target.id}",
+            label="Profile"
+        ))
+        await ctx.send(embed=embed, view=view)
 
     @commands.group(name="math")
     async def mathtools(self, ctx: commands.Context):
-        """Root command for math tools"""
+        """Root command for math tools
+        
+        Currently, only nth fibbonaci and nth triangular number are supported
+        """
         if ctx.invoked_subcommand is None:
             await ctx.send_help("math")
 
@@ -97,7 +115,7 @@ class Basic(commands.Cog):
                         fib = MathUtils.fib(n)
                         end_time = time.time()
                         await ctx.send(
-                            f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```"
+                            f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```\nCalculated in `{end_time - start_time}s`"
                         )
                     except RecursionError:
                         await ctx.send(
@@ -122,9 +140,9 @@ class Basic(commands.Cog):
                     start_time = time.time()
                     tri = MathUtils.tri(n)
                     end_time = time.time()
-                    await ctx.send(f"The {n}th triangular number is\n```{tri}\n```")
+                    await ctx.send(f"The {n}th triangular number is\n```{tri}\n```\nCalculated in `{end_time - start_time}s`")
             except ValueError:
-                raise BadArgument()
+                raise BadArgument
 
     @commands.command(name="serverinfo", aliases=["server"])
     @commands.guild_only()
@@ -157,37 +175,31 @@ class Basic(commands.Cog):
             inline=True,
         )
         embed.add_field(name="VIP features", value=guild_features, inline=True)
-
         if guild.icon is not None:
             embed.add_field(
                 name="Server icon",
                 value=f"[Server icon]({guild.icon.url})",
                 inline=True,
             )
-
         roles = ", ".join(role.name for role in guild.roles)
         embed.add_field(
             name="Roles",
             value=roles if len(roles) < 1024 else f"{len(guild.roles)} roles",
             inline=False,
         )
-
         if guild.emojis:
             emoji = "".join(str(e) for e in guild.emojis)
             embed.add_field(
                 name="Server emoji",
                 value=emoji if len(emoji) < 1024 else f"{len(guild.emojis)} emoji",
             )
-
         if guild.splash is not None:
             embed.set_image(url=guild.splash.url)
         if guild.banner is not None:
             embed.set_image(url=guild.banner.url)
-
         embed.set_footer(
             text=f"Requested by {ctx.author.name}", icon_url=ctx.author.avatar.url
         )
-
         await ctx.send(embed=embed)
 
 
@@ -197,84 +209,132 @@ class Help(commands.HelpCommand):
     def __init__(self):
         super().__init__()
 
-    def is_group(self, command: Command):
-        return "\n  ↪" if isinstance(command, Group) else ""
-
     async def send_bot_help(self, mapping):
-
-        help = await MessageUtils.gen_bot_help(self, mapping)
+        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
+        all_cogs = list()
+        for cog in mapping:
+            if len(await self.filter_commands(mapping[cog])) > 0 and cog is not None:
+                all_cogs.append(cog.qualified_name)
+        embed.add_field(
+            name="Categories",
+            value="\n".join(all_cogs),
+            inline=False
+        )
+        ctx = self.context
+        embed.add_field(name="About", value=f"The bot is owned and developed by [Pat](https://discord.com/users/665488298533322762)", inline=False)
+        embed.add_field(name="Server", value=f"The prefix for {ctx.guild.name} is `{ctx.bot.guild_cache[ctx.guild.id]['prefix']}`", inline=False)
+        embed.set_footer(text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar.url)
+        
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
                 url="https://discord.gg/DbdMRVCbKG",
                 style=discord.ButtonStyle.link,
                 label="Support server",
-                emoji=discord.PartialEmoji(
-                    name="influx_round", animated=False, id=936158443998416947
-                ),
             )
         )
-        await self.get_destination().send(
-            content=help["message"], embeds=[help["embed"]], view=view
-        )
+        await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_cog_help(self, cog: commands.Cog):
-
-        help = await MessageUtils.gen_cog_help(self, cog)
+        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
+        all_commands = list()
+        for command in await self.filter_commands(cog.get_commands()):
+            all_commands.append("{q} {h}".format(q=command.qualified_name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+        embed.add_field(
+            name=cog.qualified_name,
+            value="\n".join(all_commands),
+            inline=False
+        )
+        ctx = self.context
+        embed.set_footer(text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar.url)
+        
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
                 url="https://discord.gg/DbdMRVCbKG",
                 style=discord.ButtonStyle.link,
                 label="Support server",
-                emoji=discord.PartialEmoji(
-                    name="influx_round", animated=False, id=936158443998416947
-                ),
             )
         )
-        await self.get_destination().send(
-            content=help["message"], embeds=[help["embed"]], view=view
-        )
+        await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_group_help(self, group: commands.Group):
-
-        help = await MessageUtils.gen_group_help(self, group)
+        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
+        ctx = self.context
+        if not await group.can_run(ctx):
+            raise commands.MissingPermissions
+        all_commands = list()
+        if group.help is not None:
+            all_commands.append(f"```{group.help}```") #hacky
+        for command in await self.filter_commands(group.commands):
+            all_commands.append("{q} {h}".format(q=command.name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+        embed.add_field(
+            name=f"{group.cog.qualified_name} - `{group.qualified_name}`",
+            value="\n".join(all_commands),
+            inline=False
+        )
+        ctx = self.context
+        embed.set_footer(text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar.url)
+        
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
                 url="https://discord.gg/DbdMRVCbKG",
                 style=discord.ButtonStyle.link,
                 label="Support server",
-                emoji=discord.PartialEmoji(
-                    name="influx_round", animated=False, id=936158443998416947
-                ),
             )
         )
-        await self.get_destination().send(
-            content=help["message"], embeds=[help["embed"]], view=view
-        )
+        await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_command_help(self, command: commands.Command):
+        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
+        ctx = self.context
+        if not await command.can_run(ctx):
+            raise commands.MissingPermissions
+        commands_desc = list()
+        if command.help is not None:
+            commands_desc.append(f"```{command.help}```") #hacky
+        commands_desc.append("{q} {h}".format(q=command.name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+        embed.add_field(
+            name=f"{command.cog.qualified_name} - `{command.qualified_name}`",
+            value="\n".join(commands_desc),
+            inline=False
+        )
+        ctx = self.context
+        params = ''
+        if command.clean_params:
+            for (param_name, param_type) in command.clean_params.items():
+                req = (
+                    "True"
+                    if (
+                        (param_type.kind == param_type.KEYWORD_ONLY)
+                        or (param_type.kind == param_type.VAR_KEYWORD)
+                    )
+                    else "False"
+                )
+                params += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {req}\n\n"
+        if params != '':
+            embed.add_field(name="Paramaters", value=params, inline=False)
 
-        help = await MessageUtils.gen_command_help(self, command)
+        embed.set_footer(text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar.url)
+        
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
                 url="https://discord.gg/DbdMRVCbKG",
                 style=discord.ButtonStyle.link,
                 label="Support server",
-                emoji=discord.PartialEmoji(
-                    name="influx_round", animated=False, id=936158443998416947
-                ),
             )
         )
-        await self.get_destination().send(
-            content=help["message"], embeds=[help["embed"]], view=view
-        )
+        await self.get_destination().send(embeds=[embed], view=view)
 
     async def command_not_found(self, string):
         return f"I can't seem to find any cog or command named {string}"
 
 
-def setup(client):
-    client.add_cog(Basic(client=client))
+async def setup(client):
+    await client.add_cog(Basic(client=client))

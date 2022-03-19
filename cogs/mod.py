@@ -464,5 +464,5 @@ class Mod(commands.Cog):
         # time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def setup(client: Bot):
-    client.add_cog(Mod(client=client))
+async def setup(client: Bot):
+    await client.add_cog(Mod(client=client))

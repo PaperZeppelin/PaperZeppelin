@@ -28,5 +28,5 @@ class ModalCommandModal(discord.ui.Modal, title="Command"):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f'{self.c.value}')
 
-def setup(client: commands.Bot):
-    client.add_cog(New(client))
+async def setup(client: commands.Bot):
+    await client.add_cog(New(client))

@@ -1,32 +1,13 @@
-import json
 import PaperZeppelin
 import os
 import discord
-from discord import activity
-from discord.enums import Status
 from discord.ext import commands
-from discord.ext.commands.bot import Bot
-from discord.ext.commands.context import Context
-from discord.integrations import _integration_factory
-from discord.interactions import Interaction
-from discord.message import Message
 from dotenv import load_dotenv
 import datetime, time
-import asyncpg
-import aiohttp
-from enums.Permissions import Permissions
-from utils import BitUtils
-from utils import MessageUtils
 import traceback
 
 
 load_dotenv()
-
-
-async def get_prefix(client, message):
-    return commands.when_mentioned_or(client.guild_cache[message.guild.id]['prefix'])(client, message)
-
-
 
 client = PaperZeppelin.Client()
 
@@ -53,13 +34,6 @@ async def on_guild_join(guild):
     )
     await client.db.execute("INSERT INTO logging (guild_id) VALUES ($1)", guild.id)
     # Infractions + mod_roles do not need to be built on guild_join
-
-
-for filename in os.listdir("./cogs"):
-    if filename.endswith(".py"):
-        client.load_extension(f"cogs.{filename[:-3]}")
-
-
 
 @client.check_once
 async def log_command(ctx: commands.Context):

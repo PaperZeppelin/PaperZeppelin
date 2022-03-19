@@ -113,5 +113,5 @@ class Admin(commands.Cog):
         await ctx.guild.leave()
 
 
-def setup(client: PaperZeppelin.Client):
-    client.add_cog(Admin(client=client))
+async def setup(client: PaperZeppelin.Client):
+    await client.add_cog(Admin(client=client))

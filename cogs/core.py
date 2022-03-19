@@ -33,10 +33,12 @@ class Core(commands.Cog):
             await ctx.send("Missing a required parameter")
             return
         if isinstance(error, BadArgument):
-            await ctx.send("Failed to convert your arguments")
+            await ctx.send(f"Failed to parse your arguements`")
             return
         if isinstance(error, commands.NotOwner):
             await ctx.send("You are not the bot owner.")
+            return
+        if isinstance(error, commands.BadUnionArgument):
             return
         raise error
 
@@ -61,5 +63,5 @@ class Core(commands.Cog):
         )
 
 
-def setup(client: Bot):
-    client.add_cog(Core(client=client))
+async def setup(client: Bot):
+    await client.add_cog(Core(client=client))

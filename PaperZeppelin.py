@@ -5,6 +5,17 @@ import sys
 import typing
 import discord
 import time
+import traceback
+
+all_extentions = (
+    'cogs.admin',
+    'cogs.basic',
+    'cogs.core',
+    'cogs.discord',
+    'cogs.events',
+    'cogs.mod',
+    'cogs.owner'
+)
 
 class Client(commands.Bot):
     def __init__(self, **options):
@@ -31,11 +42,20 @@ class Client(commands.Bot):
                 type=discord.ActivityType.watching, name="the chats go by"
             ),
         )
-        self.db = self.loop.run_until_complete(self._create_db_pool())
         self.user_messages = 0
         self.self_messages = 0
         self.bot_messages = 0
         self.remove_command("help")
+        self._BotBase__cogs = commands.core._CaseInsensitiveDict()
+
+    async def setup_hook(self) -> None:
+        self.db = await self._create_db_pool()
+        for extension in all_extentions:
+            try:
+                await self.load_extension(extension)
+            except Exception as e:
+                print(f'Failed to load extension {extension}.')
+                traceback.print_exc()
 
     async def _get_prefix(self, _c, message: discord.Message):
         return commands.when_mentioned_or(self.guild_cache[message.guild.id]['prefix'])(self, message)
