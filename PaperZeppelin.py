@@ -6,6 +6,7 @@ import typing
 import discord
 import time
 import traceback
+from utils import message_utils
 
 all_extentions = (
     'cogs.admin',
@@ -47,6 +48,7 @@ class Client(commands.Bot):
         self.bot_messages = 0
         self.remove_command("help")
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
+        message_utils.load()
 
     async def setup_hook(self) -> None:
         self.db = await self._create_db_pool()
@@ -60,6 +62,30 @@ class Client(commands.Bot):
     async def _get_prefix(self, _c, message: discord.Message):
         return commands.when_mentioned_or(self.guild_cache[message.guild.id]['prefix'])(self, message)
 
+    def get_command_signature(self, cmd: str, prefix: str = "-") -> str:
+        command = self.get_command(cmd)
+        if command is None:
+            return "(command signature)"
+
+        parent: Optional[Group[Any, ..., Any]] = command.parent  # type: ignore - the parent will be a Group
+        entries = []
+        while parent is not None:
+            if not parent.signature or parent.invoke_without_command:
+                entries.append(parent.name)
+            else:
+                entries.append(parent.name + ' ' + parent.signature)
+            parent = parent.parent  # type: ignore
+        parent_sig = ' '.join(reversed(entries))
+
+        if len(command.aliases) > 0:
+            aliases = '|'.join(command.aliases)
+            fmt = f'[{command.name}|{aliases}]'
+            if parent_sig:
+                fmt = parent_sig + ' ' + fmt
+            alias = fmt
+        else:
+            alias = command.name if not parent_sig else parent_sig + ' ' + command.name
+        return f"{prefix}{alias} {command.signature}"
     def _get_variable(self, key: str, *, fail_fast: bool = False, exit: bool = False) -> typing.Any:
         if self.config_file:
             try:

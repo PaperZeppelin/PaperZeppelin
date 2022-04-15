@@ -13,9 +13,9 @@ from discord.ext.commands.context import Context
 from discord.ext.commands.core import command
 from discord.ext.commands.errors import BadArgument, CommandNotFound
 import json
-from utils import MessageUtils
 import typing
 
+from utils import message_utils
 
 
 class Admin(commands.Cog):
@@ -29,7 +29,7 @@ class Admin(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def configure(self, ctx: commands.Context):
-        """Configure bot settings"""
+        """cfg_help"""
         if ctx.invoked_subcommand is None:
             await ctx.send_help("configure")
             return
@@ -37,62 +37,62 @@ class Admin(commands.Cog):
     @configure.command(name="prefix", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def prefix(self, ctx: commands.Context, new: typing.Optional[str]):
-        """Change the prefix"""
+        """cfg_prefix"""
         prefix = self.client.guild_cache[ctx.guild.id]["prefix"]
         if not new:
-            await ctx.send(f"The current server prefix is `{prefix}`")
+            await ctx.send(message_utils.build("cfg_prefix_current", prefix=prefix))
             return
         if len(new) > 25:
-            await ctx.channel.send(f"Please use a shorter prefix")
+            await ctx.channel.send(message_utils.build("cfg_prefix_too_long"))
             return
         await self.client.db.execute("UPDATE guilds SET prefix = $1 WHERE id = $2", new, ctx.guild.id)
         self.client.guild_cache[ctx.guild.id] = {"prefix": new}
-        await ctx.channel.send(f"Succesfully set the prefix to `{new}`")
+        await ctx.channel.send(message_utils.build("cfg_prefix_success", new=new))
 
     @configure.group(name="mod_roles", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def mod_roles(self, ctx: commands.Context):
-        """Manage mod roles"""
+        """cfg_mod_roles"""
         if ctx.invoked_subcommand is None:
             mod_roles_desc = ""
             for role_id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
                 mod_roles_desc += f"<@&{role_id}>\n"
-            await ctx.channel.send(embed=Embed(title="Current mod roles", description=mod_roles_desc))
+            await ctx.channel.send(embed=Embed(title=message_utils.build("cfg_mod_roles_current_title"), description=mod_roles_desc))
             return
 
     @mod_roles.command(name="add")
     @commands.has_permissions(administrator=True)
     async def mod_roles_add(self, ctx: commands.Context, role: discord.Role):
-        """Add a mod role"""
+        """cfg_mod_roles_add"""
         id = role.id
         if id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
-            await ctx.send(f"❗ {role.name} is already a mod role!")
+            await ctx.send(message_utils.build("cfg_mod_roles_add_already", role=role.name))
             return
         self.client.guild_cache[ctx.guild.id]["mod_roles"].append(id)
         await self.client.db.execute("INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)", ctx.guild.id, id)
-        await ctx.channel.send(f":white_check_mark: `{role.name}` is now a mod role.")
+        await ctx.channel.send(message_utils.build("cfg_mod_roles_add_success", role=role.name))
         return
 
     @mod_roles.command(name="remove")
     @commands.has_permissions(administrator=True)
     async def mod_roles_remove(self, ctx: commands.Context, role: discord.Role):
-        """Remove a mod role"""
+        """cfg_mod_roles_remove"""
         id = role.id
         if not id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
-            await ctx.send(f"❗ {role.name} is not a mod role!")
+            await ctx.send(message_utils.build("cfg_mod_roles_remove_already"))
             return
         self.client.guild_cache[ctx.guild.id]["mod_roles"].remove(id)
         await self.client.db.execute("DELETE FROM mod_roles WHERE role_id = $1", id)
-        await ctx.channel.send(f":white_check_mark: Removed `{role.name}` from mod roles.")
+        await ctx.channel.send(message_utils.build("cfg_mod_roles_remove_success"))
         return
 
     @commands.group(name="leave")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def leave(self, ctx: Context):
-        """Force the bot to leave the server"""
+        """leave_help"""
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send(f"It's been an honour serving {ctx.guild.name}, but alas, my time as come")
+            await ctx.channel.send(message_utils.build("leave_success", guild=ctx.guild.name))
             await ctx.guild.leave()
             return
 
@@ -100,16 +100,16 @@ class Admin(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(administrator=True)
     async def hard(self, ctx: Context):
-        """Force the bot to leave the server AND delete all data"""
-        await ctx.send(f"It's been an honour serving {ctx.guild.name}, but alas, my time as come")
-        message = await ctx.send("Deleting stored data...")
-        await message.edit(content=message.content + "\n```\nDeleting settings\n```")
+        """leave_hard_help"""
+        await ctx.send(message_utils.build("leave_success", guild=ctx.guild.name))
+        message = await ctx.send(message_utils.build("leave_hard_deleting"))
+        await message.edit(content=message.content + message_utils.build("leave_hard_settings"))
         await self.client.db.execute("DELETE FROM guilds WHERE id = $1", ctx.guild.id)
         await self.client.db.execute("DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id)
-        await message.edit(content=message.content + "\n```\nDeleting infractions\n```")
+        await message.edit(content=message.content + message_utils.build("leave_hard_inf"))
         await self.client.db.execute("DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id)
-        await message.edit(content="Deleted all data")
-        await ctx.send("Leaving guild...")
+        await message.edit(content=message_utils.build("leave_hard_done"))
+        await ctx.send(message_utils.build("leave_hard_leaving"))
         await ctx.guild.leave()
 
 

@@ -11,10 +11,10 @@ from discord.ext.commands.errors import (
     MissingPermissions,
 )
 import typing
-
+from PaperZeppelin import Client
 
 class Events(commands.Cog):
-    def __init__(self, client) -> None:
+    def __init__(self, client: Client) -> None:
         super().__init__()
         self.client = client
 
@@ -22,7 +22,7 @@ class Events(commands.Cog):
     async def on_member_ban(
         self, guild: discord.Guild, user: typing.Union[discord.User, discord.Member]
     ):
-        await self.client.pg_con.execute(
+        await self.client.db.execute(
             "INSERT INTO infractions (guild_id, user_id, type) VALUES ($1, $2, 'MANUAL BAN')",
             guild.id,
             user.id,
@@ -32,7 +32,7 @@ class Events(commands.Cog):
     async def on_member_unban(
         self, guild: discord.Guild, user: typing.Union[discord.User, discord.Member]
     ):
-        await self.client.pg_con.execute(
+        await self.client.db.execute(
             "INSERT INTO infractions (guild_id, user_id, type) VALUES ($1, $2, 'MANUAL UNBAN')",
             guild.id,
             user.id,

@@ -16,15 +16,14 @@ from discord.ui import view
 from discord.ui.select import Select
 from convertors import HTTPConvertors
 
-from utils import MessageUtils, MathUtils
-from views.help import HelpView
+from utils import MathUtils, message_utils
 from inspect import Parameter
 import re
 import os
 
 
 class Basic(commands.Cog):
-    """Basic utilities/information"""
+    """cog_basic"""
 
     def __init__(self, client) -> None:
         super().__init__()
@@ -39,14 +38,17 @@ class Basic(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         total = str(sum(len(guild.members) for guild in self.client.guilds))
         unique = str(len(self.client.users))
-        description = f"Stats for shard 0\nI've been up for {days} days, {hours} hours, {minutes} minutes, {seconds} seconds\nI've recieved {self.client.user_messages} user messages, {self.client.bot_messages} bot messages ({self.client.self_messages} were mine)\nI'm serving {total} users ({unique} unique)"
-        embed = discord.Embed(
-            description=description,
-            colour=0x00CEA2,
-            timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(
-                tzinfo=datetime.timezone.utc
-            ),
-        )
+        description = message_utils.build('about_description', 
+            days=days,
+            hours=hours,
+            minutes=minutes,
+            seconds=seconds,
+            user_messages=self.client.user_messages,
+            bot_messages=self.client.bot_messages,
+            self_messages=self.client.self_messages,
+            total=total,
+            unique=unique)
+        embed = discord.Embed(description=description, colour=0x00CEA2, timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(tzinfo=datetime.timezone.utc))
         await ctx.send(embed=embed)
 
     @commands.command(name="userinfo", aliases=["user", "whois", "user_info", "user_profile"])
@@ -90,16 +92,13 @@ class Basic(commands.Cog):
 
     @commands.group(name="math")
     async def mathtools(self, ctx: commands.Context):
-        """Root command for math tools
-        
-        Currently, only nth fibbonaci and nth triangular number are supported
-        """
+        """math_tools"""
         if ctx.invoked_subcommand is None:
             await ctx.send_help("math")
 
     @mathtools.command(name="fib")
     async def fib(self, ctx: commands.Context, *, n: str = None):
-        """Compute the nth Fibbonaci term"""
+        """math_fib"""
         if n is None:
             await ctx.send_help("math fib")
         else:
@@ -114,19 +113,15 @@ class Basic(commands.Cog):
                         start_time = time.time()
                         fib = MathUtils.fib(n)
                         end_time = time.time()
-                        await ctx.send(
-                            f"The {n}th number in the classic Fibonnaci sequence is\n```{fib}\n```\nCalculated in `{end_time - start_time}s`"
-                        )
+                        await ctx.send(message_utils.build('math_fib_message', time=end_time - start_time, n=n, fib=fib))
                     except RecursionError:
-                        await ctx.send(
-                            f"The number supplied ({n}) is greater then my threshold"
-                        )
+                        await ctx.send(message_utils.build('math_fib_recurrsion', n=n))
             except ValueError:
                 raise BadArgument()
 
     @mathtools.command(name="tri")
     async def tri(self, ctx: commands.Context, *, n: str = None):
-        """Compute the nth triangular number"""
+        """math_tri"""
         if n is None:
             await ctx.send_help("math tri")
         else:
@@ -140,7 +135,7 @@ class Basic(commands.Cog):
                     start_time = time.time()
                     tri = MathUtils.tri(n)
                     end_time = time.time()
-                    await ctx.send(f"The {n}th triangular number is\n```{tri}\n```\nCalculated in `{end_time - start_time}s`")
+                    await ctx.send(message_utils.build('math_tri_message', n=n, tri=tri, time=end_time - start_time))
             except ValueError:
                 raise BadArgument
 
@@ -204,13 +199,22 @@ class Basic(commands.Cog):
 
 
 class Help(commands.HelpCommand):
-    """Custom help command"""
+    """help_help"""
 
     def __init__(self):
         super().__init__()
 
+    def is_required(self, annotation: typing.Any) -> bool:
+        if hasattr(annotation, "__origin__"):
+            if annotation.__origin__ is typing.Union:
+                return False
+            else:
+                return True
+        else: 
+            return True
+
     async def send_bot_help(self, mapping):
-        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed = discord.Embed(color=0x5865F2, title=message_utils.build('bot_help'), description=message_utils.build('bot_help_description', prefix=self.context.clean_prefix))
         embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
         all_cogs = list()
         for cog in mapping:
@@ -229,7 +233,7 @@ class Help(commands.HelpCommand):
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                url="https://discord.gg/DbdMRVCbKG",
+                url="https://hippo.wtf/",
                 style=discord.ButtonStyle.link,
                 label="Support server",
             )
@@ -237,11 +241,11 @@ class Help(commands.HelpCommand):
         await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_cog_help(self, cog: commands.Cog):
-        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed = discord.Embed(color=0x5865F2, title=message_utils.build('bot_help'), description=message_utils.build('bot_help_description', prefix=self.context.clean_prefix))
         embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
         all_commands = list()
         for command in await self.filter_commands(cog.get_commands()):
-            all_commands.append("{q} {h}".format(q=command.qualified_name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+            all_commands.append("{q} {h}".format(q=command.qualified_name, h=f"- {message_utils.build(command.short_doc)}" if command.short_doc != '' else ''))
         embed.add_field(
             name=cog.qualified_name,
             value="\n".join(all_commands),
@@ -253,7 +257,7 @@ class Help(commands.HelpCommand):
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                url="https://discord.gg/DbdMRVCbKG",
+                url="https://hippo.wtf/",
                 style=discord.ButtonStyle.link,
                 label="Support server",
             )
@@ -261,7 +265,7 @@ class Help(commands.HelpCommand):
         await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_group_help(self, group: commands.Group):
-        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed = discord.Embed(color=0x5865F2, title=message_utils.build('bot_help'), description=message_utils.build('bot_help_description', prefix=self.context.clean_prefix))        
         embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
         ctx = self.context
         if not await group.can_run(ctx):
@@ -270,7 +274,7 @@ class Help(commands.HelpCommand):
         if group.help is not None:
             all_commands.append(f"```{group.help}```") #hacky
         for command in await self.filter_commands(group.commands):
-            all_commands.append("{q} {h}".format(q=command.name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+            all_commands.append("{q} {h}".format(q=command.name, h=f"- {message_utils.build(command.short_doc)}" if command.short_doc != '' else ''))
         embed.add_field(
             name=f"{group.cog.qualified_name} - `{group.qualified_name}`",
             value="\n".join(all_commands),
@@ -282,7 +286,7 @@ class Help(commands.HelpCommand):
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                url="https://discord.gg/DbdMRVCbKG",
+                url="https://hippo.wtf/",
                 style=discord.ButtonStyle.link,
                 label="Support server",
             )
@@ -290,15 +294,15 @@ class Help(commands.HelpCommand):
         await self.get_destination().send(embeds=[embed], view=view)
 
     async def send_command_help(self, command: commands.Command):
-        embed = discord.Embed(color=0x5865F2, title="Bot Help", description='Hello! Welcome to the help page.\n\nUse "!help command" for more info on a command.\nUse "!help category" for more info on a category.')
+        embed = discord.Embed(color=0x5865F2, title=message_utils.build('bot_help'), description=message_utils.build('bot_help_description', prefix=self.context.clean_prefix))        
         embed.add_field(name="Support server", value="You can find a link to the support server in the button", inline=False)
         ctx = self.context
         if not await command.can_run(ctx):
             raise commands.MissingPermissions
         commands_desc = list()
         if command.help is not None:
-            commands_desc.append(f"```{command.help}```") #hacky
-        commands_desc.append("{q} {h}".format(q=command.name, h=f"- {command.short_doc}" if command.short_doc != '' else ''))
+            commands_desc.append(f"```{message_utils.build(command.help)}```") #hacky
+        commands_desc.append("{q} {h}".format(q=command.name, h=f"- {message_utils.build(command.short_doc)}" if command.short_doc != '' else ''))
         embed.add_field(
             name=f"{command.cog.qualified_name} - `{command.qualified_name}`",
             value="\n".join(commands_desc),
@@ -308,15 +312,16 @@ class Help(commands.HelpCommand):
         params = ''
         if command.clean_params:
             for (param_name, param_type) in command.clean_params.items():
-                req = (
-                    "True"
-                    if (
-                        (param_type.kind == param_type.KEYWORD_ONLY)
-                        or (param_type.kind == param_type.VAR_KEYWORD)
-                    )
-                    else "False"
-                )
-                params += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {req}\n\n"
+                required = self.is_required(param_type.annotation)              
+                try:
+                    if issubclass(param_type.annotation, commands.FlagConverter):
+                        flags = param_type.annotation.get_flags()
+                        params += f"`{param_name.capitalize()}`\n"
+                        for k, v in flags.items():
+                            required = self.is_required(v.annotation)
+                            params += f"--{k}\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {required}\n\n"
+                except TypeError:
+                    params += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {required}\n\n"
         if params != '':
             embed.add_field(name="Paramaters", value=params, inline=False)
 
@@ -325,7 +330,7 @@ class Help(commands.HelpCommand):
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                url="https://discord.gg/DbdMRVCbKG",
+                url="https://hippo.wtf/",
                 style=discord.ButtonStyle.link,
                 label="Support server",
             )
@@ -333,7 +338,7 @@ class Help(commands.HelpCommand):
         await self.get_destination().send(embeds=[embed], view=view)
 
     async def command_not_found(self, string):
-        return f"I can't seem to find any cog or command named {string}"
+        return message_utils.build('command_not_found', string=string)
 
 
 async def setup(client):
