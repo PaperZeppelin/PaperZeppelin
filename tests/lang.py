@@ -1,13 +1,17 @@
 from utils import message_utils
 
+
 def test_hello_world():
-    assert message_utils.build('hello_world') == 'Hello world'
+    assert message_utils.build("hello_world") == "Hello world"
+
 
 def test_formatting():
-    assert message_utils.build('hello_user', user="pat") == 'Hello pat'
+    assert message_utils.build("hello_user", user="pat") == "Hello pat"
+
 
 def test_failure():
-    assert message_utils.build('hello') == 'hello'
+    assert message_utils.build("hello") == "hello"
+
 
 def test() -> bool:
     try:
@@ -18,4 +22,3 @@ def test() -> bool:
         print(e.with_traceback(None))
         return False
     return True
-    

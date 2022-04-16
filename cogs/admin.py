@@ -45,7 +45,9 @@ class Admin(commands.Cog):
         if len(new) > 25:
             await ctx.channel.send(message_utils.build("cfg_prefix_too_long"))
             return
-        await self.client.db.execute("UPDATE guilds SET prefix = $1 WHERE id = $2", new, ctx.guild.id)
+        await self.client.db.execute(
+            "UPDATE guilds SET prefix = $1 WHERE id = $2", new, ctx.guild.id
+        )
         self.client.guild_cache[ctx.guild.id] = {"prefix": new}
         await ctx.channel.send(message_utils.build("cfg_prefix_success", new=new))
 
@@ -57,7 +59,12 @@ class Admin(commands.Cog):
             mod_roles_desc = ""
             for role_id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
                 mod_roles_desc += f"<@&{role_id}>\n"
-            await ctx.channel.send(embed=Embed(title=message_utils.build("cfg_mod_roles_current_title"), description=mod_roles_desc))
+            await ctx.channel.send(
+                embed=Embed(
+                    title=message_utils.build("cfg_mod_roles_current_title"),
+                    description=mod_roles_desc,
+                )
+            )
             return
 
     @mod_roles.command(name="add")
@@ -66,11 +73,19 @@ class Admin(commands.Cog):
         """cfg_mod_roles_add"""
         id = role.id
         if id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
-            await ctx.send(message_utils.build("cfg_mod_roles_add_already", role=role.name))
+            await ctx.send(
+                message_utils.build("cfg_mod_roles_add_already", role=role.name)
+            )
             return
         self.client.guild_cache[ctx.guild.id]["mod_roles"].append(id)
-        await self.client.db.execute("INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)", ctx.guild.id, id)
-        await ctx.channel.send(message_utils.build("cfg_mod_roles_add_success", role=role.name))
+        await self.client.db.execute(
+            "INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)",
+            ctx.guild.id,
+            id,
+        )
+        await ctx.channel.send(
+            message_utils.build("cfg_mod_roles_add_success", role=role.name)
+        )
         return
 
     @mod_roles.command(name="remove")
@@ -88,21 +103,41 @@ class Admin(commands.Cog):
 
     @configure.command(name="mute_role")
     @commands.has_permissions(administrator=True)
-    async def mute_role(self, ctx: commands.Context, role: typing.Optional[discord.Role]):
+    async def mute_role(
+        self, ctx: commands.Context, role: typing.Optional[discord.Role]
+    ):
         """cfg_mute_role"""
         if role is None:
-            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id][
+                "mute_role"
+            ]
             if c is None:
-                await ctx.send(message_utils.build("cfg_no_mute_role", sig=self.client.get_command_signature("cfg mute_role")))
+                await ctx.send(
+                    message_utils.build(
+                        "cfg_no_mute_role",
+                        sig=self.client.get_command_signature("cfg mute_role"),
+                    )
+                )
             else:
-                await ctx.send(message_utils.build("cfg_mute_role_current", role=c.mention), allowed_mentions=discord.AllowedMentions(roles=False))
+                await ctx.send(
+                    message_utils.build("cfg_mute_role_current", role=c.mention),
+                    allowed_mentions=discord.AllowedMentions(roles=False),
+                )
         else:
             if ctx.guild.me.top_role.position <= role.position:
-               return await ctx.send(message_utils.build("cfg_mute_role_too_high", role=role.name))
+                return await ctx.send(
+                    message_utils.build("cfg_mute_role_too_high", role=role.name)
+                )
             if role.is_integration():
-                return await ctx.send(message_utils.build("cfg_mute_role_owned", role=role.name))
-            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
-            await self.client.db.execute("UPDATE guilds SET mute_role=$1 WHERE id = $2", role.id, ctx.guild.id)
+                return await ctx.send(
+                    message_utils.build("cfg_mute_role_owned", role=role.name)
+                )
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id][
+                "mute_role"
+            ]
+            await self.client.db.execute(
+                "UPDATE guilds SET mute_role=$1 WHERE id = $2", role.id, ctx.guild.id
+            )
             self.client.guild_cache[ctx.guild.id]["mute_role"] = role
             await ctx.send(message_utils.build("cfg_mute_role_set", role=role.name))
 
@@ -112,7 +147,9 @@ class Admin(commands.Cog):
     async def leave(self, ctx: Context):
         """leave_help"""
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send(message_utils.build("leave_success", guild=ctx.guild.name))
+            await ctx.channel.send(
+                message_utils.build("leave_success", guild=ctx.guild.name)
+            )
             await ctx.guild.leave()
             return
 
@@ -123,11 +160,19 @@ class Admin(commands.Cog):
         """leave_hard_help"""
         await ctx.send(message_utils.build("leave_success", guild=ctx.guild.name))
         message = await ctx.send(message_utils.build("leave_hard_deleting"))
-        await message.edit(content=message.content + message_utils.build("leave_hard_settings"))
+        await message.edit(
+            content=message.content + message_utils.build("leave_hard_settings")
+        )
         await self.client.db.execute("DELETE FROM guilds WHERE id = $1", ctx.guild.id)
-        await self.client.db.execute("DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id)
-        await message.edit(content=message.content + message_utils.build("leave_hard_inf"))
-        await self.client.db.execute("DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id)
+        await self.client.db.execute(
+            "DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id
+        )
+        await message.edit(
+            content=message.content + message_utils.build("leave_hard_inf")
+        )
+        await self.client.db.execute(
+            "DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id
+        )
         await message.edit(content=message_utils.build("leave_hard_done"))
         await ctx.send(message_utils.build("leave_hard_leaving"))
         await ctx.guild.leave()
