@@ -38,6 +38,7 @@ class Core(commands.Cog):
             return
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(message_utils.build("missing_required_argument_unknown"))
+            return
         if isinstance(error, BadArgument):
             await ctx.send(message_utils.build('bad_argument'))
             return

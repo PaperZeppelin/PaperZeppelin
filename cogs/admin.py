@@ -7,7 +7,6 @@ from discord import message
 from discord import permissions
 from discord.embeds import Embed
 from discord.ext import commands
-import PaperZeppelin
 from discord.errors import Forbidden
 from discord.ext.commands.context import Context
 from discord.ext.commands.core import command
@@ -16,10 +15,11 @@ import json
 import typing
 
 from utils import message_utils
+from PaperZeppelin import Client
 
 
 class Admin(commands.Cog):
-    def __init__(self, client) -> None:
+    def __init__(self, client: Client) -> None:
         super().__init__()
         self.client = client
 
@@ -86,6 +86,26 @@ class Admin(commands.Cog):
         await ctx.channel.send(message_utils.build("cfg_mod_roles_remove_success"))
         return
 
+    @configure.command(name="mute_role")
+    @commands.has_permissions(administrator=True)
+    async def mute_role(self, ctx: commands.Context, role: typing.Optional[discord.Role]):
+        """cfg_mute_role"""
+        if role is None:
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            if c is None:
+                await ctx.send(message_utils.build("cfg_no_mute_role", sig=self.client.get_command_signature("cfg mute_role")))
+            else:
+                await ctx.send(message_utils.build("cfg_mute_role_current", role=c.mention), allowed_mentions=discord.AllowedMentions(roles=False))
+        else:
+            if ctx.guild.me.top_role.position <= role.position:
+               return await ctx.send(message_utils.build("cfg_mute_role_too_high", role=role.name))
+            if role.is_integration():
+                return await ctx.send(message_utils.build("cfg_mute_role_owned", role=role.name))
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            await self.client.db.execute("UPDATE guilds SET mute_role=$1 WHERE id = $2", role.id, ctx.guild.id)
+            self.client.guild_cache[ctx.guild.id]["mute_role"] = role
+            await ctx.send(message_utils.build("cfg_mute_role_set", role=role.name))
+
     @commands.group(name="leave")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
@@ -113,5 +133,5 @@ class Admin(commands.Cog):
         await ctx.guild.leave()
 
 
-async def setup(client: PaperZeppelin.Client):
+async def setup(client: Client):
     await client.add_cog(Admin(client=client))

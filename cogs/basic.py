@@ -312,7 +312,8 @@ class Help(commands.HelpCommand):
         params = ''
         if command.clean_params:
             for (param_name, param_type) in command.clean_params.items():
-                required = self.is_required(param_type.annotation)              
+                required = self.is_required(param_type.annotation)
+                default = f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {required}\n\n"   
                 try:
                     if issubclass(param_type.annotation, commands.FlagConverter):
                         flags = param_type.annotation.get_flags()
@@ -320,8 +321,10 @@ class Help(commands.HelpCommand):
                         for k, v in flags.items():
                             required = self.is_required(v.annotation)
                             params += f"--{k}\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {required}\n\n"
+                    else:
+                        params += default
                 except TypeError:
-                    params += f"`{param_name}`\n╰ Default - {param_type.default if param_type.default is not param_type.empty else 'None'}\n╰ Required - {required}\n\n"
+                    params += default
         if params != '':
             embed.add_field(name="Paramaters", value=params, inline=False)
 

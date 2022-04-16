@@ -1,4 +1,4 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
 import asyncpg
 import sys
@@ -123,12 +123,7 @@ class Client(commands.Bot):
                     guild_id=guild.id, guild_name=guild.name
                 )
             )
-            prefix = await self.db.fetchval(
-                "SELECT prefix FROM guilds WHERE id = $1", guild.id
-            )
-            verification_level = await self.db.fetchval(
-                "SELECT verification_level FROM guilds WHERE id = $1", guild.id
-            )
+            guild_data = await self.db.fetchrow("SELECT * FROM guilds WHERE id = $1", guild.id)
             mod_roles = []
             for record in await self.db.fetch(
                 "SELECT role_id FROM mod_roles WHERE guild_id = $1", guild.id
@@ -155,14 +150,15 @@ class Client(commands.Bot):
             )
             loggers = {"command": log_fetch.get("command")}
             self.guild_cache[guild.id] = {
-                "prefix": prefix,
+                "prefix": guild_data.get("prefix"),
                 "mod_roles": mod_roles,
                 "infractions": infractions,
-                "verification_level": verification_level,
+                "verification_level": guild_data.get("verification_level"),
                 "loggers": loggers,
+                "mute_role": guild.get_role(guild_data.get("mute_role")),
             }
             print(
-                "cached guild {guild_id} : {guild_name}".format(
+                "cached guild {guild_id} :: {guild_name}".format(
                     guild_id=guild.id, guild_name=guild.name
                 )
             )
