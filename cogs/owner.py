@@ -3,6 +3,7 @@ import discord
 import typing
 from PaperZeppelin import Client
 
+
 class New(commands.Cog):
     def __init__(self, client: Client):
         self.client = client
@@ -21,18 +22,22 @@ class New(commands.Cog):
     async def on_interaction(self, interaction: discord.Interaction):
         await interaction.response.send_modal(ModalCommandModal())
 
+
 class ModalCommandView(discord.ui.View):
     def __init__(self, *, timeout: typing.Optional[float] = 180):
         super().__init__(timeout=timeout)
-    
+
     @discord.ui.button(label="Click", style=discord.ButtonStyle.green)
-    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def confirm(
+        self, button: discord.ui.Button, interaction: discord.Interaction
+    ):
         await interaction.response.send_modal(ModalCommandModal())
+
 
 class ModalCommandModal(discord.ui.Modal, title="Command"):
     c = discord.ui.TextInput(label="Command", max_length=1000)
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f'{self.c.value}')
-
+        await interaction.response.send_message(f"{self.c.value}")
+        
 async def setup(client: commands.Bot):
     await client.add_cog(New(client))
