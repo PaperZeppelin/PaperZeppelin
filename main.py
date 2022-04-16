@@ -11,6 +11,7 @@ load_dotenv()
 
 client = PaperZeppelin.Client()
 
+
 @client.event
 async def on_ready():
     client.start_time = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)

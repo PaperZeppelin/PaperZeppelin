@@ -13,6 +13,7 @@ from discord.ext.commands.errors import (
 import typing
 from PaperZeppelin import Client
 
+
 class Events(commands.Cog):
     def __init__(self, client: Client) -> None:
         super().__init__()

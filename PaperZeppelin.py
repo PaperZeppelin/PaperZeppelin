@@ -9,19 +9,21 @@ import traceback
 from utils import message_utils
 
 all_extentions = (
-    'cogs.admin',
-    'cogs.basic',
-    'cogs.core',
-    'cogs.discord',
-    'cogs.events',
-    'cogs.mod',
-    'cogs.owner'
+    "cogs.admin",
+    "cogs.basic",
+    "cogs.core",
+    "cogs.discord",
+    "cogs.events",
+    "cogs.mod",
+    "cogs.owner",
 )
+
 
 class Client(commands.Bot):
     def __init__(self, **options):
         try:
             import config
+
             self.config_file = True
             self.config = config
             print("Found config file")
@@ -32,7 +34,12 @@ class Client(commands.Bot):
                 print("Environment Variable's are not valid")
                 sys.exit(-1)
         intents = discord.Intents(
-            guild_messages=True, members=True, typing=False, guilds=True, bans=True, message_content=True
+            guild_messages=True,
+            members=True,
+            typing=False,
+            guilds=True,
+            bans=True,
+            message_content=True,
         )
         self.guild_cache = dict()
         super().__init__(
@@ -56,11 +63,13 @@ class Client(commands.Bot):
             try:
                 await self.load_extension(extension)
             except Exception as e:
-                print(f'Failed to load extension {extension}.')
+                print(f"Failed to load extension {extension}.")
                 traceback.print_exc()
 
     async def _get_prefix(self, _c, message: discord.Message):
-        return commands.when_mentioned_or(self.guild_cache[message.guild.id]['prefix'])(self, message)
+        return commands.when_mentioned_or(self.guild_cache[message.guild.id]["prefix"])(
+            self, message
+        )
 
     def get_command_signature(self, cmd: str, prefix: str = "-") -> str:
         command = self.get_command(cmd)
@@ -73,20 +82,23 @@ class Client(commands.Bot):
             if not parent.signature or parent.invoke_without_command:
                 entries.append(parent.name)
             else:
-                entries.append(parent.name + ' ' + parent.signature)
+                entries.append(parent.name + " " + parent.signature)
             parent = parent.parent  # type: ignore
-        parent_sig = ' '.join(reversed(entries))
+        parent_sig = " ".join(reversed(entries))
 
         if len(command.aliases) > 0:
-            aliases = '|'.join(command.aliases)
-            fmt = f'[{command.name}|{aliases}]'
+            aliases = "|".join(command.aliases)
+            fmt = f"[{command.name}|{aliases}]"
             if parent_sig:
-                fmt = parent_sig + ' ' + fmt
+                fmt = parent_sig + " " + fmt
             alias = fmt
         else:
-            alias = command.name if not parent_sig else parent_sig + ' ' + command.name
+            alias = command.name if not parent_sig else parent_sig + " " + command.name
         return f"{prefix}{alias} {command.signature}"
-    def _get_variable(self, key: str, *, fail_fast: bool = False, exit: bool = False) -> typing.Any:
+
+    def _get_variable(
+        self, key: str, *, fail_fast: bool = False, exit: bool = False
+    ) -> typing.Any:
         if self.config_file:
             try:
                 attr = getattr(self.config, key)
@@ -98,7 +110,7 @@ class Client(commands.Bot):
         if env:
             return env
         if fail_fast:
-            self.logger.error(f'Could not find {key} as a variable, returning None')
+            self.logger.error(f"Could not find {key} as a variable, returning None")
         if exit:
             sys.exit(-1)
         return None
@@ -113,7 +125,9 @@ class Client(commands.Bot):
                 port=self._get_variable("PGPORT"),
             )
         else:
-            return await asyncpg.create_pool(dsn=self._get_variable("DATABASE_URL", fail_fast=True, exit=True))
+            return await asyncpg.create_pool(
+                dsn=self._get_variable("DATABASE_URL", fail_fast=True, exit=True)
+            )
 
     async def cache_guilds(self):
         now = time.perf_counter()
@@ -123,7 +137,9 @@ class Client(commands.Bot):
                     guild_id=guild.id, guild_name=guild.name
                 )
             )
-            guild_data = await self.db.fetchrow("SELECT * FROM guilds WHERE id = $1", guild.id)
+            guild_data = await self.db.fetchrow(
+                "SELECT * FROM guilds WHERE id = $1", guild.id
+            )
             mod_roles = []
             for record in await self.db.fetch(
                 "SELECT role_id FROM mod_roles WHERE guild_id = $1", guild.id
@@ -164,4 +180,3 @@ class Client(commands.Bot):
             )
         print("cached in {time}".format(time=time.perf_counter() - now))
         print(self.guild_cache)
-

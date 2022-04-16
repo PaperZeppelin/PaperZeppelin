@@ -15,7 +15,7 @@ class New(commands.Cog):
 
     @commands.command(name="sig")
     @commands.is_owner()
-    async def sig(self, ctx: commands.Context, *, cmd: str):        
+    async def sig(self, ctx: commands.Context, *, cmd: str):
         await ctx.send(self.client.get_command_signature(cmd, ctx.clean_prefix))
 
     @commands.Cog.listener()
@@ -36,8 +36,10 @@ class ModalCommandView(discord.ui.View):
 
 class ModalCommandModal(discord.ui.Modal, title="Command"):
     c = discord.ui.TextInput(label="Command", max_length=1000)
+
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"{self.c.value}")
-        
+
+
 async def setup(client: commands.Bot):
     await client.add_cog(New(client))

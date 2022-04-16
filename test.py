@@ -1,3 +1,4 @@
 from tests import lang
-if lang.test(): # passed
+
+if lang.test():  # passed
     print("everything passed")
