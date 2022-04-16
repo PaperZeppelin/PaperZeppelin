@@ -1,5 +1,7 @@
 import datetime
 from io import StringIO
+from tempfile import TemporaryFile
+from types import TracebackType
 import typing
 import discord
 from discord import activity
@@ -8,100 +10,142 @@ from discord import Member
 from discord import member
 from discord import permissions
 from discord.abc import User
-from discord.client import Client
+from PaperZeppelin import Client
 from discord.embeds import Embed
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands.bot import Bot
 from discord.errors import Forbidden
 from discord.ext.commands.core import command, has_any_role, has_permissions
 from discord.ext.commands.errors import CommandNotFound, MissingPermissions
 import json
 import functools
+from cogs.core import MissingArgument
+from convertors.convertors import TimeConverter
 
+from utils import message_utils
+
+class BanFlags(commands.FlagConverter, prefix='--', delimiter=' '):
+    days: typing.Optional[int] = 0
 
 class Mod(commands.Cog):
     def __init__(self, client: Client) -> None:
         super().__init__()
         self.client = client
+        self.mutes.start()
+
+    @tasks.loop()
+    async def mutes(self):
+        next_task = await self.client.db.fetchrow('SELECT * FROM mutes WHERE NOT expired ORDER BY expires_at LIMIT 1')
+        if next_task is None:
+            self.mutes.cancel()
+            return
+        await discord.utils.sleep_until(next_task.get("expires_at"))
+        await self.unmute(self.client.get_guild(next_task.get("guild")), next_task.get("user_id"))
+        await self.client.db.execute('UPDATE mutes SET expired = true WHERE id = $1', next_task.get("id"))
+
+    async def unmute(self, guild: discord.Guild, user: int):
+        '''Unmutes a user; requires the user, guild and role to be cached'''
+        if guild is None:
+            return
+        mute_role: typing.Union[discord.Role, None] = self.client.guild_cache[guild.id]["mute_role"]
+        if mute_role is None:
+            return
+        try:
+            await guild.get_member(user).remove_roles(mute_role, reason="User unmuted")
+        except:
+            pass
+        await self.log_inf(guild.id, user, "UNMUTE", "Mute expired")
+        
+    async def log_inf(self, guild: int, user: int, inf_type: str, reason: str, mod: int = 893799613855838231, ):
+        await self.client.db.execute("INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,$4, $5)",
+            guild,
+            user,
+            mod,
+            inf_type,
+            reason
+        )
+        self.client.guild_cache[guild]["infractions"].append(
+            {
+               "id": await self.client.db.fetchval(
+                    "SELECT last_value FROM infractions_id_seq"
+                    ),
+                "time": datetime.datetime.now().replace(tzinfo=None),
+                "guild_id": guild,
+                "user_id": user,
+                "mod_id": mod,
+                "type": inf_type,
+                "reason": reason,
+             }
+        )
+    def is_staff_perms(**permissions: bool):
+        async def predicate(ctx):
+            getter = functools.partial(discord.utils.get, ctx.author.roles)
+            staff = any(
+                getter(id=item) is not None
+                if isinstance(item, int)
+                else getter(name=item) is not None
+                for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
+            )
+            return staff or (await commands.has_guild_permissions(**permissions).predicate(ctx))
+        return commands.check(predicate)
+
+    def is_staff():
+        async def predicate(ctx):
+            getter = functools.partial(discord.utils.get, ctx.author.roles)
+            staff = any(
+                getter(id=item) is not None
+                if isinstance(item, int)
+                else getter(name=item) is not None
+                for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
+            )
+            return staff
+        return commands.check(predicate)
+
+    def staff(self, ctx, member) -> bool:
+        getter = functools.partial(discord.utils.get, member.roles)
+        staffb = any(getter(id=item) is not None if isinstance(item, int) else getter(name=item) is not None for item in self.client.guild_cache[ctx.guild.id]["mod_roles"])
+        return staffb
 
     def staff_or_permission(self, ctx, member, permissions):
-        getter = functools.partial(discord.utils.get, ctx.author.roles)
-        staff = any(
-            getter(id=item) is not None
-            if isinstance(item, int)
-            else getter(name=item) is not None
-            for item in self.client.guild_cache[ctx.guild.id]["mod_roles"]
-        )
+        staff = self.staff(ctx, member)
         return staff or permissions
 
     def can_interact(self, issuer: Member, target: Member):
-        # return issuer.roles[0].position > target.roles[0].position
-        return (
-            issuer.roles[len(issuer.roles) - 1].position
-            > target.roles[len(target.roles) - 1].position
-            or issuer.id == issuer.guild.owner.id
-        )
+        return issuer.roles[len(issuer.roles) - 1].position > target.roles[len(target.roles) - 1].position or issuer.id == issuer.guild.owner.id
+
+    @commands.command(name="test")
+    @is_staff_perms(view_audit_log=True)
+    async def test_c(self, ctx: commands.Context, time: TimeConverter, p: typing.Optional[int]):
+        await ctx.send(time)
 
     @commands.command(name="ban")
     @commands.guild_only()
     @commands.bot_has_guild_permissions(ban_members=True)
-    async def ban_command(self, ctx: commands.Context, *inputs):
-        """Ban a user from the server"""
-        if not self.staff_or_permission(
-            ctx, ctx.author, ctx.author.guild_permissions.ban_members
-        ):
-            await ctx.channel.send(f"🔒 You are not allowed to use this command")
-            return
-        if len(inputs) == 0:
-
-            await ctx.channel.send(
-                "Missing required arguement `member`\nCommand usage: `{}ban [member] <reason>`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            if len(ctx.message.mentions) > 0 and len(ctx.message.mentions) < 2:
-                member = ctx.message.mentions[0]
-            elif ctx.guild.get_member(int(inputs[0])) is not None:
-                member = ctx.guild.get_member(int(inputs[0]))
-        except ValueError:
-            await ctx.channel.send(f"Could not parse the `member` arguement")
-            return
-
-        reason = None
-
-        if len(inputs) > 1:
-            reason = " ".join(inputs[1:])
-
-        if member.id == ctx.author.id:
-            await ctx.channel.send(f"You cannot ban yourself!")
-            return
-
-        if member.id == ctx.guild.owner_id:
-            await ctx.channel.send("You cannot ban the owner of the server!")
-            return
-
-        if member.id == self.client.user.id:
-            await ctx.channel.send(
-                "I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        # or ctx.author.id == ctx.guild.owner_id
-        try:
-            if (
-                not self.staff_or_permission(
-                    ctx, member, member.guild_permissions.ban_members
-                )
-                or ctx.author.id == ctx.guild.owner_id
-            ):
-                await ctx.guild.ban(user=member, reason=reason, delete_message_days=0)
-                await self.client.pg_con.execute(
+    @is_staff_perms(ban_members=True)
+    async def ban_command(self, ctx: commands.Context, members: commands.Greedy[typing.Union[discord.Member, discord.User]], reason: typing.Optional[str],*, flags: BanFlags):
+        """ban_help"""
+        if len(members) == 0:
+            raise MissingArgument("members")
+        failed = list()
+        passed = list()
+        total = len(members)
+        for member in members:
+            if member.id == ctx.author.id:
+                failed.append(member)
+                continue
+            if member.id == ctx.guild.owner_id:
+                failed.append(member)
+                continue
+            if member.id == self.client.user.id:
+                failed.append(member)
+                continue
+            try:
+                if isinstance(member, discord.Member):
+                    if (self.staff_or_permission(ctx, member, member.guild_permissions.ban_members) or  not (ctx.author.id == ctx.guild.owner_id)):
+                        failed.append(member)
+                        continue
+                await ctx.guild.ban(user=member, reason=reason, delete_message_days=flags.deletedays)
+                await self.client.db.execute(
                     "INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'BAN', $4)",
                     ctx.guild.id,
                     member.id,
@@ -110,7 +154,7 @@ class Mod(commands.Cog):
                 )
                 self.client.guild_cache[ctx.guild.id]["infractions"].append(
                     {
-                        "id": await self.client.pg_con.fetchval(
+                        "id": await self.client.db.fetchval(
                             "SELECT last_value FROM infractions_id_seq"
                         ),
                         "time": datetime.datetime.now().replace(tzinfo=None),
@@ -121,194 +165,58 @@ class Mod(commands.Cog):
                         "reason": reason,
                     }
                 )
-                await ctx.channel.send(
-                    f"Banned `{member.name}#{member.discriminator}`{f' for reason: {reason}' if reason is not None else ''}"
-                )
-                return
+                passed.append(member)
+            except Forbidden:
+                failed.append(member)
+                continue
+            except discord.HTTPException:
+                failed.append(member)
+        if len(passed) == total:
+            if total == 1:
+                await ctx.send(message_utils.build('ban_passed_single', user=members[0], reason=reason))
+            elif total > 1:
+                await ctx.send(message_utils.build('ban_passed_all', number=total, reason=reason))
+        else:
+            if len(failed) == total:
+                if total == 1:
+                    await ctx.send(message_utils.build('ban_failed_single', user=members[0]))
+                elif total > 1:
+                    await ctx.send(message_utils.build('ban_failed_all'))
             else:
-                await ctx.channel.send(
-                    f"You cannot ban {member.name}#{member.discriminator} as they are a moderator"
-                )
-                return
-        except Forbidden:
-            await ctx.channel.send(
-                f"I cannot ban {member.name}#{member.discriminator} as they have a higher role then me"
-            )
-            return
-
-    @commands.group(name="clean")
-    @commands.guild_only()
-    async def clean_base_command(self, ctx: commands.Context):
-        if not self.staff_or_permission(
-            ctx, ctx.author, ctx.author.guild_permissions.manage_messages
-        ):
-            raise MissingPermissions
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    @clean_base_command.command(name="cleanban")
-    @commands.guild_only()
-    @commands.bot_has_guild_permissions(ban_members=True)
-    async def ban_command_clean(self, ctx: commands.Context, *inputs):
-        """Like the ban command but deletes messages (default is 1 day)"""
-        if not self.staff_or_permission(
-            ctx, ctx.author, ctx.author.guild_permissions.ban_members
-        ):
-            raise MissingPermissions
-        if len(inputs) == 0:
-            await ctx.channel.send(
-                "Missing required arguement `member`\nCommand usage: `{}ban [member] <reason>`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            if len(ctx.message.mentions) > 0 and len(ctx.message.mentions) < 2:
-                member = ctx.message.mentions[0]
-            elif ctx.guild.get_member(int(inputs[0])) is not None:
-                member = ctx.guild.get_member(int(inputs[0]))
-        except ValueError:
-            await ctx.channel.send(f"Could not parse the `member` arguement")
-            return
-
-        reason = None
-        days = 1
-
-        try:
-            if inputs[1][-1] == "d" or inputs[1][-1] == "D":
-                temp_days = int(inputs[1][0:-1])
-                days = temp_days
-            else:
-                days = int(inputs[1])
-        except ValueError:
-            days = 1
-
-        if len(inputs) > 2:
-            reason = " ".join(inputs[2:])
-
-        if member.id == ctx.author.id:
-            await ctx.channel.send(f"You cannot ban yourself!")
-            return
-
-        if member.id == ctx.guild.owner_id:
-            await ctx.channel.send("You cannot ban the owner of the server!")
-            return
-
-        if member.id == self.client.user.id:
-
-            await ctx.channel.send(
-                "I am unable to ban myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        # or ctx.author.id == ctx.guild.owner_id
-        try:
-            if (
-                not self.staff_or_permission(
-                    ctx, member, member.guild_permissions.ban_members
-                )
-                or ctx.author.id == ctx.guild.owner_id
-            ):
-                await ctx.guild.ban(
-                    user=member, reason=reason, delete_message_days=days
-                )
-                await self.client.pg_con.execute(
-                    "INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'CLEANBAN', $4)",
-                    ctx.guild.id,
-                    member.id,
-                    ctx.author.id,
-                    reason,
-                )
-                self.client.guild_cache[ctx.guild.id]["infractions"].append(
-                    {
-                        "id": await self.client.pg_con.fetchval(
-                            "SELECT last_value FROM infractions_id_seq"
-                        ),
-                        "time": datetime.datetime.now().replace(tzinfo=None),
-                        "guild_id": ctx.guild.id,
-                        "user_id": member.id,
-                        "mod_id": ctx.author.id,
-                        "type": "CLEANBAN",
-                        "reason": reason,
-                    }
-                )
-                await ctx.channel.send(
-                    f"Banned `{member.name}#{member.discriminator}`{f' for reason: {reason}' if reason is not None else ''} and deleted their message history for the past {days} days"
-                )
-                return
-            else:
-                await ctx.channel.send(
-                    f"You cannot ban {member.name}#{member.discriminator} as they are a moderator"
-                )
-                return
-        except Forbidden:
-            await ctx.channel.send(
-                f"I cannot ban {member.name}#{member.discriminator} as they have a higher role then me"
-            )
-            return
+                f = StringIO()
+                for user in failed:
+                    f.write(f'{user} - {user.id}\n') 
+                f.seek(0)
+                await ctx.send(message_utils.build('ban_failed_multiple', number=len(passed), reason=reason), files=[discord.File(f)])
 
     @commands.command(name="kick")
     @commands.guild_only()
     @commands.bot_has_guild_permissions(kick_members=True)
-    async def kick_command(self, ctx: commands.Context, *inputs):
-        """Kick a user from the server"""
-        if not self.staff_or_permission(
-            ctx, ctx.author, ctx.author.guild_permissions.kick_members
-        ):
-            await ctx.channel.send(f"🔒 You are not allowed to use this command")
-            return
-        if len(inputs) == 0:
-            await ctx.channel.send(
-                "Missing required arguement `member`\nCommand usage: `{}kick [member] <reason>`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            if len(ctx.message.mentions) > 0 and len(ctx.message.mentions) < 2:
-                member = ctx.message.mentions[0]
-            elif ctx.guild.get_member(int(inputs[0])) is not None:
-                member = ctx.guild.get_member(int(inputs[0]))
-        except ValueError:
-            await ctx.channel.send(f"Could not parse the `member` arguement")
-            return
-
-        reason = None
-
-        if len(inputs) > 1:
-            reason = " ".join(inputs[1:])
-
-        if member.id == ctx.author.id:
-            await ctx.channel.send(f"You cannot kick yourself!")
-            return
-
-        if member.id == ctx.guild.owner_id:
-            await ctx.channel.send("You cannot kick the owner of the server!")
-            return
-
-        if member.id == self.client.user.id:
-            await ctx.channel.send(
-                "I am unable to kick myself (I do not have a higher role than myself)\nIf you want me gone, you can manually kick/ban me or run `{}leave`".format(
-                    self.client.guild_cache[ctx.guild.id]["prefix"]
-                )
-            )
-            return
-
-        # or ctx.author.id == ctx.guild.owner_id
-        try:
-            if (
-                not self.staff_or_permission(
-                    ctx, member, member.guild_permissions.kick_members
-                )
-                or ctx.author.id == ctx.guild.owner_id
-            ):
+    @is_staff_perms(kick_members=True)
+    async def kick_command(self, ctx: commands.Context, members: commands.Greedy[typing.Union[discord.Member, discord.User]], reason: typing.Optional[str]):
+        """kick_help"""
+        if len(members) == 0:
+            raise MissingArgument("members")
+        failed = list()
+        passed = list()
+        total = len(members)
+        for member in members:
+            if member.id == ctx.author.id:
+                failed.append(member)
+                continue
+            if member.id == ctx.guild.owner_id:
+                failed.append(member)
+                continue
+            if member.id == self.client.user.id:
+                failed.append(member)
+                continue
+            try:
+                if isinstance(member, discord.Member):
+                    if (self.staff_or_permission(ctx, member, member.guild_permissions.kick_members) or  not (ctx.author.id == ctx.guild.owner_id)):
+                        failed.append(member)
+                        continue
                 await ctx.guild.kick(user=member, reason=reason)
-                await self.client.pg_con.execute(
+                await self.client.db.execute(
                     "INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'KICK', $4)",
                     ctx.guild.id,
                     member.id,
@@ -317,7 +225,7 @@ class Mod(commands.Cog):
                 )
                 self.client.guild_cache[ctx.guild.id]["infractions"].append(
                     {
-                        "id": await self.client.pg_con.fetchval(
+                        "id": await self.client.db.fetchval(
                             "SELECT last_value FROM infractions_id_seq"
                         ),
                         "time": datetime.datetime.now().replace(tzinfo=None),
@@ -328,141 +236,133 @@ class Mod(commands.Cog):
                         "reason": reason,
                     }
                 )
-                await ctx.channel.send(
-                    f"Kicked `{member.name}#{member.discriminator}`{f' for reason: {reason}' if reason is not None else ''}"
-                )
-                return
+                passed.append(member)
+            except Forbidden:
+                failed.append(member)
+                continue
+            except discord.HTTPException:
+                failed.append(member)
+        if len(passed) == total:
+            if total == 1:
+                await ctx.send(message_utils.build('kick_passed_single', user=members[0], reason=reason))
+            elif total > 1:
+                await ctx.send(message_utils.build('kick_passed_all', number=total, reason=reason))
+        else:
+            if len(failed) == total:
+                if total == 1:
+                    await ctx.send(message_utils.build('kick_failed_single', user=members[0]))
+                elif total > 1:
+                    await ctx.send(message_utils.build('kick_failed_all'))
             else:
-                await ctx.channel.send(
-                    f"You cannot kick {member.name}#{member.discriminator} as they are a moderator"
-                )
-                return
-        except Forbidden:
-            await ctx.channel.send(
-                f"I cannot kick {member.name}#{member.discriminator} as they have a higher role then me"
-            )
-            return
+                f = StringIO()
+                for user in failed:
+                    f.write(f'{user} - {user.id}\n') 
+                f.seek(0)
+                await ctx.send(message_utils.build('kick_failed_multiple', number=len(passed), reason=reason), files=[discord.File(f)])
+
+    @commands.command(name="mute", aliases=["timeout", "tempmute"])
+    @commands.guild_only()
+    @is_staff_perms(moderate_members=True)
+    async def tempmute(self, ctx: commands.Context, member: discord.Member, time: typing.Optional[TimeConverter], *, reason: typing.Optional[str] = "No reason provided"):
+        if (self.staff(ctx, member) or  not (ctx.author.id == ctx.guild.owner_id)):
+            return await ctx.send(message_utils.build("mute_target_staff"))
+        try:
+            mute_role = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            await member.add_roles(mute_role, reason=f"User muted - Reason: {reason}")
+            await self.log_inf(ctx.guild.id, member.id, "MUTE", reason, ctx.author.id)
+            expires_at = datetime.datetime.now(tz=None) + datetime.timedelta(seconds=time + 20) if time > 0.0 else "Never"
+            await self.client.db.execute("INSERT INTO mutes (user_id, expired, expires_at, guild) VALUES ($1, $2, $3, $4)", member.id, True if time <= 0.0 else False, expires_at if time > 0 else datetime.datetime.now(tz=None), ctx.guild.id)
+            await ctx.send(message_utils.build("mute_success", user=member.__str__(), reason=reason, expires_at=f"{'in ' if time > 0.0 else ''}{expires_at}"))
+            if self.mutes.is_running():
+                self.mutes.restart()
+            else:
+                self.mutes.start()
+        except Exception as e:
+            await ctx.send(message_utils.build("mute_failed"))
+            raise e
+
+
 
     @commands.group(name="infractions", aliases=["inf"])
     @commands.guild_only()
+    @is_staff_perms(view_audit_log=True)
     async def infractions(self, ctx: commands.Context):
-        """Manage infractions"""
-        if (
-            self.staff_or_permission(
-                ctx, ctx.author, ctx.author.guild_permissions.view_audit_log
-            )
-            and ctx.invoked_subcommand is None
-        ):
-            infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
-            f = StringIO()
-            f.write(
-                f"\nID  |User               |Moderator          |Time                              |TYPE      |Reason \n{'-' * 96}\n"
-            )
-            for infraction in infractions[
-                0 : (len(infractions) if len(infractions) < 100 else 100)
-            ]:
-                f.write(
-                    f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
-                )
-            f.write(
-                f"\n\n\nGenerated by {self.client.user.name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-            f.seek(0)
-            expand = (
-                "\n*Make sure to click expand!*" if f.getvalue().count("\n") > 5 else ""
-            )
-            await ctx.send(
-                content=f"🔍 Here are the infractions I've found{expand}",
-                file=discord.File(f, "infractions.md"),
-            )
+        """inf_help"""
+        if ctx.invoked_subcommand is not None:
             return
-        else:
-            if ctx.invoked_subcommand is None:
-                raise MissingPermissions(missing_permissions=["VIEW_AUDIT_LOG"])
+        infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
+        f = StringIO()
+        f.write(f"\nID  |User               |Moderator          |Time                              |TYPE        |Reason \n{'-' * 98}\n")
+        for infraction in infractions[0 : (len(infractions) if len(infractions) < 100 else 100)]:
+            f.write(f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n")
+        f.write(message_utils.build("inf_generated_by", user=self.client.user.name, time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        f.seek(0)
+        expand = message_utils.build("inf_expand") if f.getvalue().count("\n") > 5 else ""
+        await ctx.send(content=message_utils.build("inf_message", expand=expand), file=discord.File(f, "infractions.md"))
+        return
+
+    @infractions.command(name="add")
+    @commands.guild_only()
+    @is_staff()
+    async def inf_add(self, ctx: commands.Context, members: commands.Greedy[typing.Union[discord.User, discord.Member]], *, note: str):
+        """inf_add"""
+        if len(members) < 1:
+            raise commands.BadArgument
+        for member in members:
+            await self.client.db.execute("INSERT INTO infractions (guild_id, user_id, mod_id, type, reason) VALUES ($1, $2, $3,'NOTE', $4)",
+                    ctx.guild.id,
+                    member.id,
+                    ctx.author.id,
+                    note)
+            self.client.guild_cache[ctx.guild.id]["infractions"].append(
+                    {
+                        "id": await self.client.db.fetchval(
+                            "SELECT last_value FROM infractions_id_seq"
+                        ),
+                        "time": datetime.datetime.now().replace(tzinfo=None),
+                        "guild_id": ctx.guild.id,
+                        "user_id": member.id,
+                        "mod_id": ctx.author.id,
+                        "type": "NOTE",
+                        "reason": note,
+                    }
+                )
+        await ctx.send(message_utils.build("inf_add_success", note=note, user= f"{len(members)} users" if len(members) > 1 else members[0].__str__()))
+
 
     @infractions.command(name="dump")
     @commands.guild_only()
+    @is_staff_perms(view_audit_log=True)
     async def dump(self, ctx: commands.Context):
-        """Dump all infractions into a file"""
-        if self.staff_or_permission(
-            ctx, ctx.author, ctx.author.guild_permissions.view_audit_log
-        ):
-            infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
-            f = StringIO()
-            f.write(str(infractions))
-            f.write(
-                f"\n\n\nGenerated by {self.client.user.name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-            f.seek(0)
-            await ctx.send(
-                content="Dumping all the infractions",
-                file=discord.File(f, "infractions.json"),
-            )
-            return
-        else:
-            raise MissingPermissions(missing_permissions=["VIEW_AUDIT_LOG"])
-
+        """inf_dump"""
+        infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
+        f = StringIO()
+        to_dump = {
+            "public": infractions
+        }
+        f.write(json.dumps(to_dump, sort_keys=True, indent=4, default=str))
+        f.write(message_utils.build("inf_generated_by", user=self.client.user.name, time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')).replace("\n", ""))
+        f.seek(0)
+        await ctx.send(content=message_utils.build("inf_dumping"), file=discord.File(f, "infractions.json"))
+        return
+        
     @infractions.command(name="search")
     @commands.guild_only()
-    async def dump(
-        self, ctx: commands.Context, user: typing.Union[discord.User, discord.Member]
-    ):
-        """Get all infractions from a user"""
-        if (
-            self.staff_or_permission(
-                ctx, ctx.author, ctx.author.guild_permissions.view_audit_log
-            )
-            and ctx.invoked_subcommand is None
-        ):
-            infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
-            f = StringIO()
-            f.write(
-                f"\nID  |User               |Moderator          |Time                              |TYPE      |Reason \n{'-' * 96}\n"
-            )
-            for infraction in infractions[
-                0 : (len(infractions) if len(infractions) < 100 else 100)
-            ]:
-                if infraction["user_id"] == user.id or infraction["mod_id"] == user.id:
-                    f.write(
-                        f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
-                    )
-            f.write(
-                f"\n\n\nGenerated by {self.client.user.name} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-            f.seek(0)
-            expand = (
-                "\n*Make sure to click expand!*" if f.getvalue().count("\n") > 5 else ""
-            )
-            await ctx.send(
-                content=f"🔍 Here are the infractions I've found{expand}",
-                file=discord.File(f, "infractions.md"),
-            )
-            return
-        else:
-            if ctx.invoked_subcommand is None:
-                raise MissingPermissions(missing_permissions=["VIEW_AUDIT_LOG"])
+    @is_staff_perms(view_audit_log=True)
+    async def searchdump(self, ctx: commands.Context, user: typing.Union[discord.User, discord.Member]):
+        """inf_search_dump"""
+        infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
+        f = StringIO()
+        f.write(f"\nID  |User               |Moderator          |Time                              |TYPE      |Reason \n{'-' * 96}\n")
+        for infraction in infractions:
+            if infraction["user_id"] == user.id or infraction["mod_id"] == user.id:
+                f.write(f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n")
+        f.write(message_utils.build("inf_generated_by", user=self.client.user.name, time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        f.seek(0)
+        expand = message_utils.build("inf_expand") if f.getvalue().count("\n") > 5 else ""
+        await ctx.send(content=message_utils.build("inf_message", expand=expand), file=discord.File(f, "infractions.md"))
+        return
+        
 
-    @commands.command(name="mkick")
-    @commands.guild_only()
-    async def mkick(
-        self,
-        ctx: commands.Context,
-        members: commands.Greedy[typing.Union[discord.Member, discord.User]],
-        *,
-        reason,
-    ):
-        """Kick multiple user from the server"""
-        await ctx.send(members)
-        print(self.can_interact(ctx.author, members[0]))
-        # if (not self.staff_or_permission(ctx, ctx.author, ctx.author.guild_permissions.kick_members)):
-        #     await ctx.channel.send(f"🔒 You are not allowed to use this command")
-        #     return
-        # if(len(members) == 0):
-        #     await ctx.channel.send(f"Missing required arguement `member`\nCommand usage: `{self.client.guild_cache[ctx.guild.id]["prefix"]}kick [member] <reason>`")
-        #     return
-
-        # time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def setup(client: Bot):
-    client.add_cog(Mod(client=client))
+async def setup(client: Bot):
+    await client.add_cog(Mod(client=client))

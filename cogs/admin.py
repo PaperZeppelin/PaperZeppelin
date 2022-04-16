@@ -1,31 +1,25 @@
 import datetime
 from io import StringIO
+from multiprocessing import parent_process
 import discord
 from discord import activity
 from discord import message
 from discord import permissions
 from discord.embeds import Embed
 from discord.ext import commands
-from discord.ext.commands.bot import Bot
 from discord.errors import Forbidden
 from discord.ext.commands.context import Context
 from discord.ext.commands.core import command
 from discord.ext.commands.errors import BadArgument, CommandNotFound
 import json
-from utils import MessageUtils
+import typing
 
-configure_help = f"""
-```diff
-! [configure|config|cfg]
-
-  prefix{' ' * 6}Change the guild prefix
-  mod_roles{' ' * 3}Set mod roles for the server
-```
-"""
+from utils import message_utils
+from PaperZeppelin import Client
 
 
 class Admin(commands.Cog):
-    def __init__(self, client) -> None:
+    def __init__(self, client: Client) -> None:
         super().__init__()
         self.client = client
 
@@ -35,224 +29,109 @@ class Admin(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def configure(self, ctx: commands.Context):
-        """Configure bot settings"""
-        member_permissions = ctx.message.author.guild_permissions
-        if ctx.invoked_subcommand is None and member_permissions.administrator:
-            await ctx.channel.send(configure_help)
+        """cfg_help"""
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help("configure")
             return
 
     @configure.command(name="prefix", invoke_without_command=True)
-    async def prefix(self, ctx: commands.Context, *inputs):
-        """Change the prefix"""
+    @commands.has_permissions(administrator=True)
+    async def prefix(self, ctx: commands.Context, new: typing.Optional[str]):
+        """cfg_prefix"""
         prefix = self.client.guild_cache[ctx.guild.id]["prefix"]
-        if len(inputs) == 0:
-            await ctx.send(f"The current server prefix is `{prefix}`")
+        if not new:
+            await ctx.send(message_utils.build("cfg_prefix_current", prefix=prefix))
             return
-        if len(inputs) == 1:
-            member_permissions = ctx.message.author.guild_permissions
-            if member_permissions.administrator:
-                if len(inputs[0]) > 25:
-                    await ctx.channel.send(f"Please use a shorter prefix")
-                    return
-                if isinstance(inputs[0], str):
-                    await self.client.pg_con.execute(
-                        "UPDATE guilds SET prefix = $1 WHERE id = $2",
-                        inputs[0],
-                        ctx.guild.id,
-                    )
-                    self.client.guild_cache[ctx.guild.id] = {"prefix": inputs[0]}
-                    await ctx.channel.send(
-                        f"Succesfully set the prefix to `{inputs[0]}`"
-                    )
-                    return
-                else:
-                    await ctx.channel.send(f"I couldn't parse {inputs[0]}")
-                    return
+        if len(new) > 25:
+            await ctx.channel.send(message_utils.build("cfg_prefix_too_long"))
+            return
+        await self.client.db.execute("UPDATE guilds SET prefix = $1 WHERE id = $2", new, ctx.guild.id)
+        self.client.guild_cache[ctx.guild.id] = {"prefix": new}
+        await ctx.channel.send(message_utils.build("cfg_prefix_success", new=new))
 
     @configure.group(name="mod_roles", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
     async def mod_roles(self, ctx: commands.Context):
-        """Manage mod roles"""
-        member_permissions = ctx.message.author.guild_permissions
-        if ctx.invoked_subcommand is None and member_permissions.administrator:
+        """cfg_mod_roles"""
+        if ctx.invoked_subcommand is None:
             mod_roles_desc = ""
             for role_id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
                 mod_roles_desc += f"<@&{role_id}>\n"
-            await ctx.channel.send(
-                embed=Embed(title="Current mod roles", description=mod_roles_desc)
-            )
+            await ctx.channel.send(embed=Embed(title=message_utils.build("cfg_mod_roles_current_title"), description=mod_roles_desc))
             return
 
     @mod_roles.command(name="add")
     @commands.has_permissions(administrator=True)
-    async def mod_roles_add(self, ctx: commands.Context, inputs):
-        """Add a mod role"""
-        if len(ctx.message.role_mentions) > 0:
-            if (
-                int(ctx.message.role_mentions[0].id)
-                in self.client.guild_cache[ctx.guild.id]["mod_roles"]
-            ):
-                await ctx.channel.send(
-                    f"❌ `{ctx.message.role_mentions[0].name}` is already a mod role!"
-                )
-                return
-            self.client.guild_cache[ctx.guild.id]["mod_roles"].append(
-                int(ctx.message.role_mentions[0].id)
-            )
-            await self.client.pg_con.execute(
-                "INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)",
-                ctx.guild.id,
-                ctx.message.role_mentions[0].id,
-            )
-            await ctx.channel.send(
-                f":white_check_mark:  `{str(ctx.message.role_mentions[0].name)}` is now a mod role."
-            )
+    async def mod_roles_add(self, ctx: commands.Context, role: discord.Role):
+        """cfg_mod_roles_add"""
+        id = role.id
+        if id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
+            await ctx.send(message_utils.build("cfg_mod_roles_add_already", role=role.name))
             return
-        elif ctx.guild.get_role(int(inputs)) is not None:
-            if (
-                int(ctx.guild.get_role(int(inputs)).id)
-                in self.client.guild_cache[ctx.guild.id]["mod_roles"]
-            ):
-                await ctx.channel.send(
-                    f"❌ `{ctx.guild.get_role(int(inputs)).name}` is already a mod role!"
-                )
-                return
-            self.client.guild_cache[ctx.guild.id]["mod_roles"].append(int(inputs))
-            await self.client.pg_con.execute(
-                "INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)",
-                ctx.guild.id,
-                int(inputs),
-            )
-            await ctx.channel.send(
-                f":white_check_mark:  `{ctx.guild.get_role(int(inputs)).name}` is now a mod role."
-            )
-            return
-
-        await ctx.channel.send(f"🔒 You do not have access to this command")
+        self.client.guild_cache[ctx.guild.id]["mod_roles"].append(id)
+        await self.client.db.execute("INSERT INTO mod_roles (guild_id, role_id) VALUES ($1, $2)", ctx.guild.id, id)
+        await ctx.channel.send(message_utils.build("cfg_mod_roles_add_success", role=role.name))
         return
 
     @mod_roles.command(name="remove")
     @commands.has_permissions(administrator=True)
-    async def mod_roles_remove(self, ctx: commands.Context, inputs):
-        """Remove a mod role"""
-        if len(ctx.message.role_mentions) > 0:
-            if (
-                int(ctx.message.role_mentions[0].id)
-                in self.client.guild_cache[ctx.guild.id]["mod_roles"]
-            ):
-                self.client.guild_cache[ctx.guild.id]["mod_roles"].remove(
-                    int(ctx.message.role_mentions[0].id)
-                )
-                await self.client.pg_con.execute(
-                    "DELETE FROM mod_roles WHERE role_id = $1",
-                    ctx.message.role_mentions[0].id,
-                )
-                await ctx.channel.send(
-                    f":white_check_mark:  `{str(ctx.message.role_mentions[0].name)}` is no longer a mod role."
-                )
-                return
-            await ctx.channel.send(
-                f"❌ `{ctx.message.role_mentions[0].name}` was not a mod role so I cannot remove it"
-            )
+    async def mod_roles_remove(self, ctx: commands.Context, role: discord.Role):
+        """cfg_mod_roles_remove"""
+        id = role.id
+        if not id in self.client.guild_cache[ctx.guild.id]["mod_roles"]:
+            await ctx.send(message_utils.build("cfg_mod_roles_remove_already"))
             return
-        elif ctx.guild.get_role(int(inputs)) is not None:
-            if (
-                int(ctx.guild.get_role(int(inputs)).id)
-                in self.client.guild_cache[ctx.guild.id]["mod_roles"]
-            ):
-                self.client.guild_cache[ctx.guild.id]["mod_roles"].remove(int(inputs))
-                await self.client.pg_con.execute(
-                    "DELETE FROM mod_roles WHERE role_id = $1", int(inputs)
-                )
-                await ctx.channel.send(
-                    f":white_check_mark: `{ctx.guild.get_role(int(inputs)).name}` is no longer a mod role."
-                )
-                return
-
-            await ctx.channel.send(
-                f"❌ `{ctx.guild.get_role(int(inputs)).name}` was not a mod role so I cannot remove it"
-            )
-            return
-
-        await ctx.channel.send(f"🔒 You do not have access to this command")
+        self.client.guild_cache[ctx.guild.id]["mod_roles"].remove(id)
+        await self.client.db.execute("DELETE FROM mod_roles WHERE role_id = $1", id)
+        await ctx.channel.send(message_utils.build("cfg_mod_roles_remove_success"))
         return
+
+    @configure.command(name="mute_role")
+    @commands.has_permissions(administrator=True)
+    async def mute_role(self, ctx: commands.Context, role: typing.Optional[discord.Role]):
+        """cfg_mute_role"""
+        if role is None:
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            if c is None:
+                await ctx.send(message_utils.build("cfg_no_mute_role", sig=self.client.get_command_signature("cfg mute_role")))
+            else:
+                await ctx.send(message_utils.build("cfg_mute_role_current", role=c.mention), allowed_mentions=discord.AllowedMentions(roles=False))
+        else:
+            if ctx.guild.me.top_role.position <= role.position:
+               return await ctx.send(message_utils.build("cfg_mute_role_too_high", role=role.name))
+            if role.is_integration():
+                return await ctx.send(message_utils.build("cfg_mute_role_owned", role=role.name))
+            c: typing.Union[discord.Role, None] = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            await self.client.db.execute("UPDATE guilds SET mute_role=$1 WHERE id = $2", role.id, ctx.guild.id)
+            self.client.guild_cache[ctx.guild.id]["mute_role"] = role
+            await ctx.send(message_utils.build("cfg_mute_role_set", role=role.name))
 
     @commands.group(name="leave")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def leave(self, ctx: Context):
-        """Force the bot to leave the server"""
+        """leave_help"""
         if ctx.invoked_subcommand is None:
-            member_permissions = ctx.message.author.guild_permissions
-            if member_permissions.administrator:
-                await ctx.channel.send(
-                    f"It's been an honour serving {ctx.guild.name}, but alas, my time as come"
-                )
-                await ctx.guild.leave()
-            else:
-                await ctx.channel.send(f"Only server admins can use this command!")
+            await ctx.channel.send(message_utils.build("leave_success", guild=ctx.guild.name))
+            await ctx.guild.leave()
+            return
 
     @leave.command(name="hard")
     @commands.guild_only()
     @commands.has_guild_permissions(administrator=True)
     async def hard(self, ctx: Context):
-        """Force the bot to leave the server AND delete all data"""
-        member_permissions = ctx.message.author.guild_permissions
-        if member_permissions.administrator:
-            await ctx.send(
-                f"It's been an honour serving {ctx.guild.name}, but alas, my time as come"
-            )
-            message = await ctx.send("Deleting data stored...")
-            await message.edit(
-                content=message.content + "\n```\nDeleting settings\n```"
-            )
-            await self.client.pg_con.execute(
-                "DELETE FROM guilds WHERE id = $1", ctx.guild.id
-            )
-            await self.client.pg_con.execute(
-                "DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id
-            )
-            await message.edit(
-                content=message.content + "\n```\nDeleting infractions\n```"
-            )
-            await self.client.pg_con.execute(
-                "DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id
-            )
-            await message.edit(content="Deleted all data")
-            await ctx.send("Leaving guild...")
-            await ctx.guild.leave()
-        else:
-            await ctx.channel.send(f"Only server admins can use this command!")
-
-    @configure.group(name="verification")
-    @commands.guild_only()
-    @commands.has_guild_permissions(administrator=True)
-    async def verification(self, ctx: commands.Context):
-        if ctx.invoked_subcommand is None:
-            await ctx.send(
-                content=MessageUtils.build(
-                    type="verification_level",
-                    level=self.client.guild_cache[ctx.guild.id]["verification_level"],
-                    prefix=ctx.prefix,
-                )
-            )
-
-    @verification.command(name="set")
-    @commands.guild_only()
-    @commands.has_guild_permissions(administrator=True)
-    async def set_verification_level(self, ctx: commands.Context, level: int):
-        if level < 0 or level > 1:
-            raise BadArgument("Could not parse the `level` arguement")
-        self.client.guild_cache[ctx.guild.id]["verification_level"] = level
-        await ctx.send(
-            "Set the servers verification level to {level}".format(level=level)
-        )
-        await self.client.pg_con.execute(
-            "UPDATE guilds SET verification_level = $1 WHERE id = $2",
-            level,
-            ctx.guild.id,
-        )
+        """leave_hard_help"""
+        await ctx.send(message_utils.build("leave_success", guild=ctx.guild.name))
+        message = await ctx.send(message_utils.build("leave_hard_deleting"))
+        await message.edit(content=message.content + message_utils.build("leave_hard_settings"))
+        await self.client.db.execute("DELETE FROM guilds WHERE id = $1", ctx.guild.id)
+        await self.client.db.execute("DELETE FROM mod_roles WHERE guild_id = $1", ctx.guild.id)
+        await message.edit(content=message.content + message_utils.build("leave_hard_inf"))
+        await self.client.db.execute("DELETE FROM infractions WHERE guild_id = $1", ctx.guild.id)
+        await message.edit(content=message_utils.build("leave_hard_done"))
+        await ctx.send(message_utils.build("leave_hard_leaving"))
+        await ctx.guild.leave()
 
 
-def setup(client: Bot):
-    client.add_cog(Admin(client=client))
+async def setup(client: Client):
+    await client.add_cog(Admin(client=client))

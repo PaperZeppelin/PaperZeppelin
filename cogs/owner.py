@@ -1,16 +1,26 @@
 from discord.ext import commands
 import discord
 import typing
+from PaperZeppelin import Client
 
 
 class New(commands.Cog):
-    def __init__(self, client: commands.Bot):
+    def __init__(self, client: Client):
         self.client = client
 
     @commands.command(name="modal")
     @commands.is_owner()
     async def modal(self, ctx: commands.Context):
-        await ctx.send(content="Modal testing", view=ModalCommandView())
+        await ctx.send(content="Modal testing")
+
+    @commands.command(name="sig")
+    @commands.is_owner()
+    async def sig(self, ctx: commands.Context, *, cmd: str):        
+        await ctx.send(self.client.get_command_signature(cmd, ctx.clean_prefix))
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(ModalCommandModal())
 
 
 class ModalCommandView(discord.ui.View):
@@ -24,12 +34,10 @@ class ModalCommandView(discord.ui.View):
         await interaction.response.send_modal(ModalCommandModal())
 
 
-class ModalCommandModal(discord.ui.Modal, title="Testing"):
-    c = discord.ui.TextInput(label="content", max_length=1000)
-
+class ModalCommandModal(discord.ui.Modal, title="Command"):
+    c = discord.ui.TextInput(label="Command", max_length=1000)
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"{self.c.value}")
-
-
-def setup(client: commands.Bot):
-    client.add_cog(New(client))
+        
+async def setup(client: commands.Bot):
+    await client.add_cog(New(client))

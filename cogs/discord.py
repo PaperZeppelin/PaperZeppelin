@@ -37,5 +37,5 @@ class Discord(commands.Cog):
             )
 
 
-def setup(client):
-    client.add_cog(Discord(client=client))
+async def setup(client):
+    await client.add_cog(Discord(client=client))
