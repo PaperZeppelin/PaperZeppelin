@@ -1,13 +1,5 @@
 import PaperZeppelin
-import os
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
-import datetime, time
-import traceback
-
-
-load_dotenv()
+import datetime
 
 client = PaperZeppelin.Client()
 
@@ -37,5 +29,5 @@ async def on_guild_join(guild):
     # Infractions + mod_roles do not need to be built on guild_join
 
 
-print("PaperZeppelin is starting")
-client.run(client._get_variable("TOKEN", exit=True))
+client.logger.info("PaperZeppelin is starting")
+client.run(client.get_variable("TOKEN", exit=True))

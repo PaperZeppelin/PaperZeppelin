@@ -1,28 +1,18 @@
 import datetime
-from io import StringIO
-from tempfile import TemporaryFile
-from types import TracebackType
+import functools
+import json
 import typing
-import discord
-from discord import activity
-from discord import message
-from discord import Member
-from discord import member
-from discord import permissions
-from discord.abc import User
-from PaperZeppelin import Client
-from discord.embeds import Embed
+from io import StringIO
+
+from discord.errors import Forbidden
 from discord.ext import commands, tasks
 from discord.ext.commands.bot import Bot
-from discord.errors import Forbidden
-from discord.ext.commands.core import command, has_any_role, has_permissions
-from discord.ext.commands.errors import CommandNotFound, MissingPermissions
-import json
-import functools
+
+import discord
+from PaperZeppelin import Client
 from cogs.core import MissingArgument
 from convertors.convertors import TimeConverter
-
-from utils import message_utils
+from discord import Member
 
 
 class BanFlags(commands.FlagConverter, prefix="--", delimiter=" "):
@@ -96,31 +86,41 @@ class Mod(commands.Cog):
             }
         )
 
+    @staticmethod
     def is_staff_perms(**permissions: bool):
         async def predicate(ctx):
-            getter = functools.partial(discord.utils.get, ctx.author.roles)
-            staff = any(
-                getter(id=item) is not None
-                if isinstance(item, int)
-                else getter(name=item) is not None
-                for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
-            )
-            return staff or (
-                await commands.has_guild_permissions(**permissions).predicate(ctx)
-            )
+            try:
+                getter = functools.partial(discord.utils.get, ctx.author.roles)
+                staff = any(
+                    getter(id=item) is not None
+                    if isinstance(item, int)
+                    else getter(name=item) is not None
+                    for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
+                )
+                return staff or (
+                    await commands.has_guild_permissions(**permissions).predicate(ctx)
+                )
+            except AttributeError:
+                return await commands.has_guild_permissions(**permissions).predicate(
+                    ctx
+                )
 
         return commands.check(predicate)
 
+    @staticmethod
     def is_staff():
         async def predicate(ctx):
-            getter = functools.partial(discord.utils.get, ctx.author.roles)
-            staff = any(
-                getter(id=item) is not None
-                if isinstance(item, int)
-                else getter(name=item) is not None
-                for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
-            )
-            return staff
+            try:
+                getter = functools.partial(discord.utils.get, ctx.author.roles)
+                staff = any(
+                    getter(id=item) is not None
+                    if isinstance(item, int)
+                    else getter(name=item) is not None
+                    for item in ctx.bot.guild_cache[ctx.guild.id]["mod_roles"]
+                )
+                return staff
+            except AttributeError:
+                return False
 
         return commands.check(predicate)
 
@@ -164,7 +164,7 @@ class Mod(commands.Cog):
         *,
         flags: BanFlags,
     ):
-        """ban_help"""
+        """Ban a user(s) from the server"""
         if len(members) == 0:
             raise MissingArgument("members")
         failed = list()
@@ -219,30 +219,26 @@ class Mod(commands.Cog):
         if len(passed) == total:
             if total == 1:
                 await ctx.send(
-                    message_utils.build(
-                        "ban_passed_single", user=members[0], reason=reason
-                    )
+                    "✅ Banned {} for reason: `{}`".format(members[0], reason)
                 )
             elif total > 1:
                 await ctx.send(
-                    message_utils.build("ban_passed_all", number=total, reason=reason)
+                    "✅ Banned all {} users for reason: `{}`".format(total, reason)
                 )
         else:
             if len(failed) == total:
                 if total == 1:
-                    await ctx.send(
-                        message_utils.build("ban_failed_single", user=members[0])
-                    )
+                    await ctx.send("❌ I could not ban {}.".format(members[0]))
                 elif total > 1:
-                    await ctx.send(message_utils.build("ban_failed_all"))
+                    await ctx.send("❌ I could not ban any users.")
             else:
                 f = StringIO()
                 for user in failed:
                     f.write(f"{user} - {user.id}\n")
                 f.seek(0)
                 await ctx.send(
-                    message_utils.build(
-                        "ban_failed_multiple", number=len(passed), reason=reason
+                    "⚠ I banned {} users for `{}`. I've attached the users I could not ban.".format(
+                        len(passed), reason
                     ),
                     files=[discord.File(f)],
                 )
@@ -257,7 +253,7 @@ class Mod(commands.Cog):
         members: commands.Greedy[typing.Union[discord.Member, discord.User]],
         reason: typing.Optional[str],
     ):
-        """kick_help"""
+        """Kick user(s) from the server"""
         if len(members) == 0:
             raise MissingArgument("members")
         failed = list()
@@ -310,30 +306,26 @@ class Mod(commands.Cog):
         if len(passed) == total:
             if total == 1:
                 await ctx.send(
-                    message_utils.build(
-                        "kick_passed_single", user=members[0], reason=reason
-                    )
+                    "✅ Kicked {} for reason: `{}`".format(members[0], reason)
                 )
             elif total > 1:
                 await ctx.send(
-                    message_utils.build("kick_passed_all", number=total, reason=reason)
+                    "✅ Kicked all {} users for reason: `{}`".format(total, reason)
                 )
         else:
             if len(failed) == total:
                 if total == 1:
-                    await ctx.send(
-                        message_utils.build("kick_failed_single", user=members[0])
-                    )
+                    await ctx.send("❌ I could not kick {}.".format(members[0]))
                 elif total > 1:
-                    await ctx.send(message_utils.build("kick_failed_all"))
+                    await ctx.send("❌ I could not kick any users.")
             else:
                 f = StringIO()
                 for user in failed:
                     f.write(f"{user} - {user.id}\n")
                 f.seek(0)
                 await ctx.send(
-                    message_utils.build(
-                        "kick_failed_multiple", number=len(passed), reason=reason
+                    "⚠ I kicked {} users for `{}`. I've attached the users I could not kick.".format(
+                        len(passed), reason
                     ),
                     files=[discord.File(f)],
                 )
@@ -350,29 +342,33 @@ class Mod(commands.Cog):
         reason: typing.Optional[str] = "No reason provided",
     ):
         if self.staff(ctx, member) or not (ctx.author.id == ctx.guild.owner_id):
-            return await ctx.send(message_utils.build("mute_target_staff"))
+            return await ctx.send(
+                "❌ The targeted member is above you in the role hierarchy"
+            )
         try:
             mute_role = self.client.guild_cache[ctx.guild.id]["mute_role"]
+            muted = discord.utils.get(member.roles, id=mute_role.id)
+            if muted:
+                return await ctx.send("🤔 But aren't they already muted?")
             await member.add_roles(mute_role, reason=f"User muted - Reason: {reason}")
             await self.log_inf(ctx.guild.id, member.id, "MUTE", reason, ctx.author.id)
             expires_at = (
                 datetime.datetime.now(tz=None) + datetime.timedelta(seconds=time + 20)
-                if time > 0.0
+                if time is not None
                 else "Never"
             )
             await self.client.db.execute(
                 "INSERT INTO mutes (user_id, expired, expires_at, guild) VALUES ($1, $2, $3, $4)",
                 member.id,
-                True if time <= 0.0 else False,
-                expires_at if time > 0 else datetime.datetime.now(tz=None),
+                True if time is None else False,
+                expires_at if time is not None else datetime.datetime.now(tz=None),
                 ctx.guild.id,
             )
             await ctx.send(
-                message_utils.build(
-                    "mute_success",
+                "✅ Muted {user} for reason {reason}. The mute expires {expires_at}".format(
                     user=member.__str__(),
                     reason=reason,
-                    expires_at=f"{'in ' if time > 0.0 else ''}{expires_at}",
+                    expires_at=f"{'in ' + str(time) + '.' if time is not None else 'never.'}",
                 )
             )
             if self.mutes.is_running():
@@ -380,14 +376,14 @@ class Mod(commands.Cog):
             else:
                 self.mutes.start()
         except Exception as e:
-            await ctx.send(message_utils.build("mute_failed"))
+            await ctx.send("❌ Failed to mute user")
             raise e
 
     @commands.group(name="infractions", aliases=["inf"])
     @commands.guild_only()
     @is_staff_perms(view_audit_log=True)
     async def infractions(self, ctx: commands.Context):
-        """inf_help"""
+        """Manage infractions"""
         if ctx.invoked_subcommand is not None:
             return
         infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
@@ -399,21 +395,20 @@ class Mod(commands.Cog):
             0 : (len(infractions) if len(infractions) < 100 else 100)
         ]:
             f.write(
-                f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
+                f"{infraction['id']}{' ' * (4 - len(str(infraction['id'])))}|{infraction['user_id']}{' ' * (19 - len(str(infraction['user_id'])))}|{infraction['mod_id']}{' ' * (19 - len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' ' * (34 - len(str(infraction['time'].isoformat() + '+00:00')))}|{infraction['type']}{' ' * (10 - len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
             )
         f.write(
-            message_utils.build(
-                "inf_generated_by",
+            "Generated by {user} at {time}".format(
                 user=self.client.user.name,
                 time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             )
         )
         f.seek(0)
         expand = (
-            message_utils.build("inf_expand") if f.getvalue().count("\n") > 5 else ""
+            "\n*Make sure to click expand!*" if f.getvalue().count("\n") > 5 else ""
         )
         await ctx.send(
-            content=message_utils.build("inf_message", expand=expand),
+            content="🔍 Here are the infractions I've found {}".format(expand),
             file=discord.File(f, "infractions.md"),
         )
         return
@@ -428,7 +423,7 @@ class Mod(commands.Cog):
         *,
         note: str,
     ):
-        """inf_add"""
+        """Adds a note to user(s)"""
         if len(members) < 1:
             raise commands.BadArgument
         for member in members:
@@ -453,12 +448,9 @@ class Mod(commands.Cog):
                 }
             )
         await ctx.send(
-            message_utils.build(
-                "inf_add_success",
-                note=note,
-                user=f"{len(members)} users"
-                if len(members) > 1
-                else members[0].__str__(),
+            "✅ Added the NOTE `{}` to {}.".format(
+                note,
+                f"{len(members)} users" if len(members) > 1 else members[0].__str__(),
             )
         )
 
@@ -466,21 +458,20 @@ class Mod(commands.Cog):
     @commands.guild_only()
     @is_staff_perms(view_audit_log=True)
     async def dump(self, ctx: commands.Context):
-        """inf_dump"""
+        """Dump all infractions into a file"""
         infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
         f = StringIO()
         to_dump = {"public": infractions}
         f.write(json.dumps(to_dump, sort_keys=True, indent=4, default=str))
         f.write(
-            message_utils.build(
-                "inf_generated_by",
+            "Generated by {user} at {time}".format(
                 user=self.client.user.name,
                 time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             ).replace("\n", "")
         )
         f.seek(0)
         await ctx.send(
-            content=message_utils.build("inf_dumping"),
+            content="Dumping all the infractions",
             file=discord.File(f, "infractions.json"),
         )
         return
@@ -491,7 +482,7 @@ class Mod(commands.Cog):
     async def searchdump(
         self, ctx: commands.Context, user: typing.Union[discord.User, discord.Member]
     ):
-        """inf_search_dump"""
+        """Get all infractions from a user"""
         infractions = self.client.guild_cache[ctx.guild.id]["infractions"]
         f = StringIO()
         f.write(
@@ -500,21 +491,20 @@ class Mod(commands.Cog):
         for infraction in infractions:
             if infraction["user_id"] == user.id or infraction["mod_id"] == user.id:
                 f.write(
-                    f"{infraction['id']}{' '* (4- len(str(infraction['id'])))}|{infraction['user_id']}{' '* (19- len(str(infraction['user_id'])))}|{infraction['mod_id']}{' '* (19- len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' '* (34- len(str(infraction['time'].isoformat()+'+00:00')))}|{infraction['type']}{' '* (10- len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
+                    f"{infraction['id']}{' ' * (4 - len(str(infraction['id'])))}|{infraction['user_id']}{' ' * (19 - len(str(infraction['user_id'])))}|{infraction['mod_id']}{' ' * (19 - len(str(infraction['mod_id'])))}|{infraction['time'].isoformat()}+00:00{' ' * (34 - len(str(infraction['time'].isoformat() + '+00:00')))}|{infraction['type']}{' ' * (10 - len(str(infraction['type'])))}|{infraction['reason'] if infraction['reason'] is not None else ''}\n"
                 )
         f.write(
-            message_utils.build(
-                "inf_generated_by",
+            "\n\n\nGenerated by {user} at {time}".format(
                 user=self.client.user.name,
                 time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             )
         )
         f.seek(0)
         expand = (
-            message_utils.build("inf_expand") if f.getvalue().count("\n") > 5 else ""
+            "\n*Make sure to click expand!*" if f.getvalue().count("\n") > 5 else ""
         )
         await ctx.send(
-            content=message_utils.build("inf_message", expand=expand),
+            content="🔍 Here are the infractions I've found {}".format(expand),
             file=discord.File(f, "infractions.md"),
         )
         return

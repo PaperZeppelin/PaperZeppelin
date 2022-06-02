@@ -1,29 +1,30 @@
-import datetime, time
-from io import StringIO
+import base64
+import datetime
+import time
 import typing
-import aiohttp
-from aiohttp.client import ClientSession
-import discord
-from discord import ButtonStyle, message
-from discord import file
-from discord.components import SelectOption
-from discord.enums import DefaultAvatar
-from discord.ext import commands
-from discord.ext.commands.core import Command, Group, guild_only
-from discord.ext.commands.errors import BadArgument, MemberNotFound
-from discord.http import Route
-from discord.ui import view
-from discord.ui.select import Select
-from convertors import HTTPConvertors
 
-from utils import MathUtils, message_utils
-from inspect import Parameter
-import re
-import os
+from discord.ext import commands
+from discord.ext.commands.errors import BadArgument
+
+import discord
+from discord import ButtonStyle
+from utils import MathUtils
+
+DESCRIPTION = 'Hello! Welcome to the help page.\n\nUse "{prefix}help command" for more info on a command.\nUse "{prefix}help category" for more info on a category.'
+HELP_VIEW = discord.ui.View()
+HELP_VIEW.add_item(
+    discord.ui.Button(
+        url="https://hippo.wtf/",
+        style=discord.ButtonStyle.link,
+        label="Support server",
+    )
+)
 
 
 class Basic(commands.Cog):
-    """cog_basic"""
+    """A collection of commands standard across bots.
+
+    This category offers commands that extract information, and some questionably useful tools."""
 
     def __init__(self, client) -> None:
         super().__init__()
@@ -32,6 +33,9 @@ class Basic(commands.Cog):
 
     @commands.command(name="about")
     async def about(self, ctx: commands.Context):
+        """Get information about the bot.
+
+        While this information may not be extremely helpful as an end user, it still is nice to know."""
         uptime = (
             datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
             - self.client.start_time
@@ -41,20 +45,22 @@ class Basic(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         total = str(sum(len(guild.members) for guild in self.client.guilds))
         unique = str(len(self.client.users))
-        description = message_utils.build(
-            "about_description",
-            days=days,
-            hours=hours,
-            minutes=minutes,
-            seconds=seconds,
-            user_messages=self.client.user_messages,
-            bot_messages=self.client.bot_messages,
-            self_messages=self.client.self_messages,
-            total=total,
-            unique=unique,
-        )
+        description = [
+            "Stats for the bot",
+            "I've been up for {days} days, {hours} hours, {minutes} minutes, {seconds} seconds".format(
+                days=days, hours=hours, minutes=minutes, seconds=seconds
+            ),
+            "In this time, I've watched {user_messages} messages, {bot_messages} bot messages ({self_messages} were mine)".format(
+                user_messages=self.client.user_messages,
+                bot_messages=self.client.bot_messages,
+                self_messages=self.client.self_messages,
+            ),
+            "I'm serving {total} users ({unique} unique)".format(
+                total=total, unique=unique
+            ),
+        ]
         embed = discord.Embed(
-            description=description,
+            description="\n".join(description),
             colour=0x00CEA2,
             timestamp=datetime.datetime.utcfromtimestamp(time.time()).replace(
                 tzinfo=datetime.timezone.utc
@@ -71,6 +77,16 @@ class Basic(commands.Cog):
         *,
         t: typing.Union[discord.Member, discord.User] = None,
     ):
+        """Extracts information about a user.
+
+        Aliases
+        -------
+        Many bots have different names for this command, for this reason PaperZeppelin has many aliases for this command.
+        * user
+        * whois
+        * user_info
+        * user_profile"""
+
         target = ctx.author if t is None else t
         now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
         is_member = isinstance(target, discord.Member)
@@ -124,13 +140,19 @@ class Basic(commands.Cog):
 
     @commands.group(name="math")
     async def mathtools(self, ctx: commands.Context):
-        """math_tools"""
+        """Use PaperZeppelin's computing power for maths
+
+        This command only supports two basic algorithims, Nth fibinoacci number and Nth triangular number.
+
+        This command is a ROOT command. Use one of the listed subcommands to use the specified tool."""
         if ctx.invoked_subcommand is None:
             await ctx.send_help("math")
 
     @mathtools.command(name="fib")
     async def fib(self, ctx: commands.Context, *, n: str = None):
-        """math_fib"""
+        """Calculates the Nth fibonacci number.
+
+        This command uses a recursion to find the Nth term."""
         if n is None:
             await ctx.send_help("math fib")
         else:
@@ -146,21 +168,38 @@ class Basic(commands.Cog):
                         fib = MathUtils.fib(n)
                         end_time = time.time()
                         await ctx.send(
-                            message_utils.build(
-                                "math_fib_message",
-                                time=end_time - start_time,
-                                n=n,
-                                fib=fib,
+                            "The {}th number in the classic Fibonnaci sequence is\n```{}\n```\nCalculated in `{}s`".format(
+                                n, fib, end_time - start_time
                             )
                         )
                     except RecursionError:
-                        await ctx.send(message_utils.build("math_fib_recurrsion", n=n))
+                        await ctx.send(
+                            "The number supplied ({}) is greater then my threshold".format(
+                                n
+                            )
+                        )
             except ValueError:
                 raise BadArgument()
 
     @mathtools.command(name="tri")
     async def tri(self, ctx: commands.Context, *, n: str = None):
-        """math_tri"""
+        """Calculates the Nth triangular number
+
+        Formula
+        -------
+            n * (n + 1)
+        Tₙ = ━━━━━━━━━━━━
+                2
+
+        Representation
+        --------------
+        This is a representation of the 4th triangular number, 10
+
+           1
+          2 3
+         4 5 6
+        7 8 9 10
+        """
         if n is None:
             await ctx.send_help("math tri")
         else:
@@ -175,8 +214,8 @@ class Basic(commands.Cog):
                     tri = MathUtils.tri(n)
                     end_time = time.time()
                     await ctx.send(
-                        message_utils.build(
-                            "math_tri_message", n=n, tri=tri, time=end_time - start_time
+                        "The {}th triangular number is\n```{}\n```\nCalculated in `{}s`".format(
+                            n, tri, end_time - start_time
                         )
                     )
             except ValueError:
@@ -185,6 +224,9 @@ class Basic(commands.Cog):
     @commands.command(name="serverinfo", aliases=["server"])
     @commands.guild_only()
     async def server_info(self, ctx: commands.Context):
+        """Extracts data from the current guild
+
+        Due to privacy concerns, this command does NOT take a guild parameter."""
         guild = ctx.guild
         guild_features = ", ".join(guild.features)
         if guild_features == "":
@@ -240,10 +282,92 @@ class Basic(commands.Cog):
         )
         await ctx.send(embed=embed)
 
+    @commands.command(name="encode")
+    async def _encode(self, ctx: commands.Context, encoding: str, *, text: str):
+        """Encode a string of characters, a "phrase", into the given encoding type
+
+        Supported encodings
+        -------------------
+        NOTE: Key - Value means Name - Accepted encodings
+        * base 64: b64, base64
+        * base 32: b32, base32
+        * base 16: b16, base16
+        * base 85: b85, base85
+        """
+        e = discord.Embed(colour=0x5865F2)
+        e.add_field(name="📥 Input", value=f"```{text}```", inline=False)
+        e.set_footer(
+            text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}",
+            icon_url=ctx.author.avatar.url,
+        )
+        if encoding in ("b64", "base64"):
+            await ctx.send(
+                embeds=[
+                    e.add_field(
+                        name="📤 Output",
+                        value=f"```{base64.b64encode(text.encode('ascii')).decode('ascii')}```",
+                    )
+                ]
+            )
+        elif encoding in ("b32", "base32"):
+            await ctx.send(
+                embeds=[
+                    e.add_field(
+                        name="📤 Output",
+                        value=f"```{base64.b32encode(text.encode('ascii')).decode('ascii')}```",
+                    )
+                ]
+            )
+        elif encoding in ("b16", "base16"):
+            await ctx.send(
+                embeds=[
+                    e.add_field(
+                        name="📤 Output",
+                        value=f"```{base64.b16encode(text.encode('ascii')).decode('ascii')}```",
+                    )
+                ]
+            )
+        elif encoding in ("b85", "base85"):
+            await ctx.send(
+                embeds=[
+                    e.add_field(
+                        name="📤 Output",
+                        value=f"```{base64.b16encode(text.encode('ascii')).decode('ascii')}```",
+                    )
+                ]
+            )
+        else:
+            await ctx.send("An invalid or unsupported encoding type was provided")
+
+    @commands.command(name="decode")
+    async def _decode(self, ctx: commands.Context, encoding: str, *, text: str):
+        """Decodes an already encoded string of characters, a "phrase", into the given encoding type
+
+        Supported encodings
+        -------------------
+        NOTE: Key - Value means Name - Accepted encodings
+        * base 64: b64, base64
+        """
+        e = discord.Embed(colour=0x5865F2)
+        e.add_field(name="📥 Input", value=f"```{text}```", inline=False)
+        e.set_footer(
+            text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}",
+            icon_url=ctx.author.avatar.url,
+        )
+        if encoding in ("b64", "base64"):
+            await ctx.send(
+                embeds=[
+                    e.add_field(
+                        name="📤 Output",
+                        value=f"```{base64.b64decode(text.encode('ascii') + b'==').decode('ascii')}```",
+                    )
+                ]
+            )
+        else:
+            await ctx.send("An invalid or unsupported encoding type was provided")
+
 
 class Help(commands.HelpCommand):
-    """help_help"""
-
     def __init__(self):
         super().__init__()
 
@@ -259,10 +383,8 @@ class Help(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(
             color=0x5865F2,
-            title=message_utils.build("bot_help"),
-            description=message_utils.build(
-                "bot_help_description", prefix=self.context.clean_prefix
-            ),
+            title="Bot Help",
+            description=DESCRIPTION.format(prefix=self.context.clean_prefix),
         )
         embed.add_field(
             name="Support server",
@@ -290,23 +412,13 @@ class Help(commands.HelpCommand):
             icon_url=ctx.author.avatar.url,
         )
 
-        view = discord.ui.View()
-        view.add_item(
-            discord.ui.Button(
-                url="https://hippo.wtf/",
-                style=discord.ButtonStyle.link,
-                label="Support server",
-            )
-        )
-        await self.get_destination().send(embeds=[embed], view=view)
+        await self.get_destination().send(embeds=[embed], view=HELP_VIEW)
 
     async def send_cog_help(self, cog: commands.Cog):
         embed = discord.Embed(
             color=0x5865F2,
-            title=message_utils.build("bot_help"),
-            description=message_utils.build(
-                "bot_help_description", prefix=self.context.clean_prefix
-            ),
+            title="Category help",
+            description=DESCRIPTION.format(prefix=self.context.clean_prefix),
         )
         embed.add_field(
             name="Support server",
@@ -318,9 +430,7 @@ class Help(commands.HelpCommand):
             all_commands.append(
                 "{q} {h}".format(
                     q=command.qualified_name,
-                    h=f"- {message_utils.build(command.short_doc)}"
-                    if command.short_doc != ""
-                    else "",
+                    h=f"- {command.short_doc}" if command.short_doc != "" else "",
                 )
             )
         embed.add_field(
@@ -331,24 +441,13 @@ class Help(commands.HelpCommand):
             text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}",
             icon_url=ctx.author.avatar.url,
         )
-
-        view = discord.ui.View()
-        view.add_item(
-            discord.ui.Button(
-                url="https://hippo.wtf/",
-                style=discord.ButtonStyle.link,
-                label="Support server",
-            )
-        )
-        await self.get_destination().send(embeds=[embed], view=view)
+        await self.get_destination().send(embeds=[embed], view=HELP_VIEW)
 
     async def send_group_help(self, group: commands.Group):
         embed = discord.Embed(
             color=0x5865F2,
-            title=message_utils.build("bot_help"),
-            description=message_utils.build(
-                "bot_help_description", prefix=self.context.clean_prefix
-            ),
+            title="Command Help",
+            description=DESCRIPTION.format(prefix=self.context.clean_prefix),
         )
         embed.add_field(
             name="Support server",
@@ -360,14 +459,18 @@ class Help(commands.HelpCommand):
             raise commands.MissingPermissions
         all_commands = list()
         if group.help is not None:
-            all_commands.append(f"```{group.help}```")  # hacky
+            all_commands.append(
+                f"```{group.help.format(prefix=ctx.clean_prefix)}```"
+            )  # hacky
+            all_commands.append("**Subcommands**")
+        else:
+            all_commands.append("**Subcommands**")
+
         for command in await self.filter_commands(group.commands):
             all_commands.append(
                 "{q} {h}".format(
                     q=command.name,
-                    h=f"- {message_utils.build(command.short_doc)}"
-                    if command.short_doc != ""
-                    else "",
+                    h=f"- {command.short_doc}" if command.short_doc != "" else "",
                 )
             )
         embed.add_field(
@@ -380,24 +483,13 @@ class Help(commands.HelpCommand):
             text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}",
             icon_url=ctx.author.avatar.url,
         )
-
-        view = discord.ui.View()
-        view.add_item(
-            discord.ui.Button(
-                url="https://hippo.wtf/",
-                style=discord.ButtonStyle.link,
-                label="Support server",
-            )
-        )
-        await self.get_destination().send(embeds=[embed], view=view)
+        await self.get_destination().send(embeds=[embed], view=HELP_VIEW)
 
     async def send_command_help(self, command: commands.Command):
         embed = discord.Embed(
             color=0x5865F2,
-            title=message_utils.build("bot_help"),
-            description=message_utils.build(
-                "bot_help_description", prefix=self.context.clean_prefix
-            ),
+            title="Command Help",
+            description=DESCRIPTION.format(prefix=self.context.clean_prefix),
         )
         embed.add_field(
             name="Support server",
@@ -409,15 +501,11 @@ class Help(commands.HelpCommand):
             raise commands.MissingPermissions
         commands_desc = list()
         if command.help is not None:
-            commands_desc.append(f"```{message_utils.build(command.help)}```")  # hacky
-        commands_desc.append(
-            "{q} {h}".format(
-                q=command.name,
-                h=f"- {message_utils.build(command.short_doc)}"
-                if command.short_doc != ""
-                else "",
+            commands_desc.append(f"```{command.help.format(prefix=ctx.prefix)}```")
+        else:
+            commands_desc.append(
+                "🏗️ This command is currently under construction.\n\nThe command is missing documentation. Please let us know by joining the support server below."
             )
-        )
         embed.add_field(
             name=f"{command.cog.qualified_name} - `{command.qualified_name}`",
             value="\n".join(commands_desc),
@@ -447,19 +535,10 @@ class Help(commands.HelpCommand):
             text=f"Executed by {ctx.author.name}#{ctx.author.discriminator}",
             icon_url=ctx.author.avatar.url,
         )
-
-        view = discord.ui.View()
-        view.add_item(
-            discord.ui.Button(
-                url="https://hippo.wtf/",
-                style=discord.ButtonStyle.link,
-                label="Support server",
-            )
-        )
-        await self.get_destination().send(embeds=[embed], view=view)
+        await self.get_destination().send(embeds=[embed], view=HELP_VIEW)
 
     async def command_not_found(self, string):
-        return message_utils.build("command_not_found", string=string)
+        return "I can't seem to find any cog or command named {}".format(string)
 
 
 async def setup(client):

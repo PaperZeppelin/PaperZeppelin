@@ -4,6 +4,8 @@ math_fib_message: "The {n}th number in the classic Fibonnaci sequence is\n```{fi
 math_fib_recurrsion: The number supplied ({n}) is greater then my threshold
 math_tri_message: The {n}th triangular number is\n```{tri}\n```\nCalculated in `{time}s`
 
+encoding_invalid: "An invalid or unsupported encoding type was provided"
+
 # admin cog
 cfg_prefix_current: The current server prefix is `{prefix}`
 cfg_prefix_too_long: Please use a shorter prefix
@@ -79,6 +81,9 @@ leave_hard_help: Force the bot to leave the server AND delete all data
 math_tools: "Root command for math tools\n\nCurrently, only nth fibbonaci and nth triangular number are supported"
 math_fib: Compute the nth Fibbonaci term
 math_tri: Compute the nth triangular number
+encode: "Encode text content, valid encodings are: b64, base64, b32, base32, b16, base16, b85, base85\nUse '{prefix}decode' to then decode the string"
+decode: "Decode text content, valid encodings are: b64, base64\nUse '{prefix}encode' to then encode the string"
+
 
 command_not_found: I can't seem to find any cog or command named {string}
 
@@ -95,5 +100,8 @@ not_staff_or_perm: "🔒 You are not allowed to use this command"
 # misc
 true-literal: "True"
 false-literal: "False"
+input: 📥 Input
+output: 📤 Output
+executed_by: Executed by {user} ({id})
 
 # types

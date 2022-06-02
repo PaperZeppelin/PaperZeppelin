@@ -1,18 +1,14 @@
-import discord
-from discord import activity
+import time
+
 from discord.ext import commands
 from discord.ext.commands.bot import Bot
-from discord.errors import Forbidden
 from discord.ext.commands.errors import (
     BadArgument,
     CommandNotFound,
-    MemberNotFound,
     MissingPermissions,
 )
-import json
-import time
 
-from utils import message_utils
+import discord
 from PaperZeppelin import Client
 
 
@@ -36,30 +32,27 @@ class Core(commands.Cog):
         if isinstance(error, CommandNotFound):
             return
         if isinstance(error, MissingPermissions):
-            await ctx.send(message_utils.build("missing_permissions"))
+            await ctx.send("You are not allowed to use this command")
             return
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(message_utils.build("missing_required_argument_unknown"))
+            await ctx.send("Missing a required parameter")
             return
         if isinstance(error, BadArgument):
-            await ctx.send(message_utils.build("bad_argument"))
+            await ctx.send("Failed to parse your arguements")
             return
         if isinstance(error, commands.NotOwner):
-            await ctx.send(message_utils.build("not_owner"))
+            await ctx.send("You are not the bot owner.")
             return
         if isinstance(error, commands.BadUnionArgument):
             return
         if isinstance(error, MissingArgument):
             e = discord.Embed(
                 colour=0xE84118,
-                title=message_utils.build(
-                    "missing_required_argument", param=error.param
-                ),
-                description=message_utils.build(
-                    "missing_required_argument_sig",
-                    sig=self.client.get_command_signature(
+                title="Missing a required parameter `{}`".format(error.param),
+                description="Correct command usage: `{}`".format(
+                    self.client.get_command_signature(
                         ctx.command.qualified_name, ctx.clean_prefix
-                    ),
+                    )
                 ),
             )
             await ctx.send(embeds=[e])

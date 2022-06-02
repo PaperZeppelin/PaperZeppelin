@@ -4,3 +4,8 @@
 # environment variables
 *.env
 config.*
+
+# misc
+*.xml
+*.iml
+.idea/
