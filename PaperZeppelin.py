@@ -45,7 +45,7 @@ class Client(commands.Bot):
             guilds=True,
             bans=True,
             message_content=True,
-            reactions=True
+            reactions=True,
         )
         self.guild_cache = dict()
         super().__init__(

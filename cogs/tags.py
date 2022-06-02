@@ -20,12 +20,12 @@ def clean(text: str) -> str:
     return END_OF_MENTION_REGEX.sub(
         "",
         text.replace("*", "")
-            .replace("_", "")
-            .replace("`", "")
-            .replace("<@", "")
-            .replace("<@&", "")
-            .replace("<@#", "")
-            .replace("<:", ""),
+        .replace("_", "")
+        .replace("`", "")
+        .replace("<@", "")
+        .replace("<@&", "")
+        .replace("<@#", "")
+        .replace("<:", ""),
     )
 
 
@@ -129,7 +129,7 @@ class Tags(commands.Cog):
         embed.add_field(
             name="Owner",
             value=f'<@{tag.get("author_id")}>, {tag.get("author_clean")}\n\n**Seeing "@invalid-user" or '
-                  f'"@lotofnumbers"?**\nClick the button below',
+            f'"@lotofnumbers"?**\nClick the button below',
             inline=False,
         )
         embed.add_field(name="Uses", value=tag.get("uses"))
@@ -265,17 +265,24 @@ class Tags(commands.Cog):
         -------
         The purpose of the command is for MODERATION, which is why it is restricted to the owner only
         """
-        backup: Record = await self.client.db.fetchrow("SELECT * FROM tags WHERE name=$1", name)
+        backup: Record = await self.client.db.fetchrow(
+            "SELECT * FROM tags WHERE name=$1", name
+        )
         await self.client.db.execute("DELETE FROM tags WHERE name=$1", name)
         message = await ctx.send(
-            "All done. Deleted tag {}\n\n**If this was a mistake react with ♻ to restore the tag.**".format(name))
+            "All done. Deleted tag {}\n\n**If this was a mistake react with ♻ to restore the tag.**".format(
+                name
+            )
+        )
         await message.add_reaction("♻")
 
         def check(reaction, user):
             return user.id == ctx.author.id and message.id == reaction.message.id
 
         try:
-            _, _ = await self.client.wait_for("reaction_add", check=check, timeout=300.0)
+            _, _ = await self.client.wait_for(
+                "reaction_add", check=check, timeout=300.0
+            )
             await self.client.db.execute(
                 "INSERT INTO tags (id, name, response, uses, author_id, author_clean) VALUES ($1, $2, $3, $4, $5, $6)",
                 backup.get("id"),
@@ -283,7 +290,8 @@ class Tags(commands.Cog):
                 backup.get("response"),
                 backup.get("uses"),
                 backup.get("author_id"),
-                backup.get("author_clean"))
+                backup.get("author_clean"),
+            )
             await ctx.send("Restored tag {}".format(name))
             await message.clear_reactions()
         except asyncio.TimeoutError:
